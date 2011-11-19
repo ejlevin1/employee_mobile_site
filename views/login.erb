@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<script type="text/javascript" src="<%= versioned_javascript('jquery-1.7.min') %>"></script>
+	<link rel="stylesheet" type="text/css" href="<%= versioned_stylesheet(:application) %>" />
+	<link rel="shortcut icon" href="<%= versioned_image('favicon.png') %>" type="image/png" />
+	<title>90-Day Weight Loss Challenge Sign-In</title>
+</head>
+<body>
+    <div id="container">
+		<div id="header">
+			<div class="brand-header">&nbsp;</div>
+		</div>
+		<div id="contents">
+			<iframe width="750" height="300" src="<%= @login_iframe_url %>" frameBorder="0"></iframe>
+		</div>
+		<div id="footer">
+		  <span class="copyright">&copy; 2011 LIFE TIME FITNESS, Inc. All Rights Reserved.</span>
+		</div>
+	</div>
+</body>
+</html>
