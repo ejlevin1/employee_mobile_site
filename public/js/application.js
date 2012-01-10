@@ -21,3 +21,13 @@ if (!Array.prototype.indexOf)
     return -1;
   };
 }
+
+function keepAlive() {
+  setInterval(function(){
+    BOSSAPI.auth.ping();
+  }, 60000 * 5);
+}
+
+function employee(){
+  return $(document).data('employee');
+}

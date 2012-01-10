@@ -1,22 +1,41 @@
-<!DOCTYPE html>
-<html>
-<head>
-	<script type="text/javascript" src="<%= versioned_javascript('jquery-1.7.min') %>"></script>
-	<link rel="stylesheet" type="text/css" href="<%= versioned_stylesheet(:application) %>" />
-	<link rel="shortcut icon" href="<%= versioned_image('favicon.png') %>" type="image/png" />
-	<title>90-Day Weight Loss Challenge Sign-In</title>
-</head>
-<body>
-    <div id="container">
-		<div id="header">
-			<div class="brand-header">&nbsp;</div>
-		</div>
-		<div id="contents">
-			<iframe width="750" height="300" src="<%= @login_iframe_url %>" frameBorder="0"></iframe>
-		</div>
-		<div id="footer">
-		  <span class="copyright">&copy; 2011 LIFE TIME FITNESS, Inc. All Rights Reserved.</span>
-		</div>
+<!DOCTYPE html> 
+<html> 
+	<head> 
+		<title>Life Time Fitness Employee Access - Login</title> 
+		<%= partial(:_head) %>
+		<script type="text/javascript">
+			$(function() {
+	            $("#login").click(function() {
+	            	BOSSAPI.auth.employee.login({
+	            		data : { pin : $('#login_form input[name=pin]').val() },
+	            		success : function(data) {
+	            			window.location.href = "<%= to('/auth_callback') %>?ssoid=" + data.ssoid;
+	            		},
+	            		error : function(error) {
+	            			alert(error.message);
+	            		}
+	            	});
+	            });
+	        });
+		</script>
+	</head> 
+<body> 
+
+<div data-role="page">
+	<div data-role="header">
+		<h1>Employee Login</h1>
 	</div>
+	<div data-role="content">
+		<form id="login_form">
+			<div data-role="fieldcontain">
+				<label for="pin">PIN</label>
+				<input type="text" name="pin" id="pin" value="" placeholder="f536"/>
+			</div>
+			<hr/>
+			<input id="login" type="button" value="Login" />
+		</form>	
+	</div>
+</div>
+
 </body>
 </html>

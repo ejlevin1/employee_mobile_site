@@ -1,27 +1,228 @@
 <!DOCTYPE html> 
 <html> 
 	<head> 
-	<title>Life Time Fitness Employee Access</title> 
-	<meta name="viewport" content="width=device-width, initial-scale=1"> 
-	<link rel="stylesheet" href="http://code.jquery.com/mobile/1.0/jquery.mobile-1.0.min.css" />
-	<script src="http://code.jquery.com/jquery-1.6.4.min.js"></script>
-	<script src="http://code.jquery.com/mobile/1.0/jquery.mobile-1.0.min.js"></script>
-	<script type="text/javascript" src="<%= versioned_javascript('date') %>"></script>
-	<script type="text/javascript" src="<%= "#{@boss_data_server}js/bossapi_v1.js" %>"></script>
-	<script type="text/javascript">
-		BOSSAPI.init('<%= @ssoid %>');
-	</script>
+		<title>Life Time Fitness Employee Access</title> 
+		<%= partial(:_head) %>
+	</head>
 </head> 
 <body> 
 
-<div data-role="page">
+<div data-role="page" data-add-back-btn="true" id="home">
 	<div data-role="header">
-		<h1>Employee access</h1>
+		<h1>Employee Access</h1>
 	</div>
 	<div data-role="content">	
-		<p>Hello world</p>		
+		Loading...	
+	</div>
+	<div data-role="footer">
+		<h4 class="username"></h4>
+	</div>
+</div>
+
+<div data-role="page" id="view-my-schedule" data-add-back-btn="true">
+	<div data-role="header">
+		<h1>My Schedule</h1>
+		<a class="new-appointment ui-btn-right" data-icon="plus">New Appointment</a>
+	</div>
+	<div data-role="content">	
+	</div>
+	<div data-role="footer">
+		<h4 class="username"></h4>
+	</div>
+</div>
+
+<div data-role="page" id="meeting-details" data-add-back-btn="true">
+	<div data-role="header">
+		<h1></h1>
+	</div>
+	<div data-role="content">	
+		Meeting details.
 	</div>
 </div>
 
 </body>
+<script id="my-schedule-page-template" type="text/x-handlebars-template">
+	<ul data-role="listview">
+
+	</ul>
+</script>
+<script id="meeting-page-template" type="text/x-handlebars-template">
+	<h3>{{ description }}</h3>
+
+	<div data-role="fieldcontain">
+		<label for="date_time">Time</label>
+		<input type="text" name="date_time" readonly="readonly" value="{{meeting_date this}} at {{meeting_time this}}"  />	
+	</div>
+	<div data-role="fieldcontain">
+		<label for="duration">Duration</label>
+		<input type="text" name="duration" readonly="readonly" value="{{meeting_duration this}}"  />	
+	</div>
+
+	<fieldset>
+		<legend>Roster</legend>
+		<ul class="rosters">
+			{{#rosters}}<li class="roster">{{member.name}}&nbsp;({{member.id}})</li>{{/rosters}}
+			{{^rosters}}<li class="empty">No one is currently rostered.</li>{{/rosters}}
+		</ul>
+	</fieldset>
+
+	<div class="actions" data-role="controlgroup">
+	</div>
+
+	<div data-role="collapsible" data-state="collapsed">
+		<h3>Debug</h3>
+		<div data-role="fieldcontain">
+			<label for="reservation_id">Reservation ID</label>
+			<input type="text" name="reservation_id" readonly="readonly" value="{{reservation_id}}"  />	
+		</div>
+		<div data-role="fieldcontain">
+			<label for="status">Status</label>
+			<input type="text" name="status" readonly="readonly" value="{{status}}"  />	
+		</div>
+		<div data-role="fieldcontain">
+			<label for="reservation_type">Type</label>
+			<input type="text" name="reservation_type" readonly="readonly" value="{{reservation_type}}"  />	
+		</div>
+		<div data-role="fieldcontain">
+			<label for="id">Key</label>
+			<input type="text" name="id" readonly="readonly" value="{{id}}"  />	
+		</div>
+    </div>
+</script>
+<script id="meeting" type="text/x-handlebars-template">
+  <li class="meeting {{status}}"><a href="#">{{meeting_time this}} - {{description}} {{#rosters}} with {{member.name}}{{/rosters}}</a></li>
+</script>
+<script type="text/javascript">
+
+$(document).bind("onAuthenticated", function(e, employee){
+	$('h4.username').text('Logged-In As: ' + employee.name.full );
+	$('#home .ui-header').append('<a class="ui-btn-right" href="<%= to('/logout') %>">Logout</a>')
+
+	//Create the home page...
+	var container = $('#home .ui-content').empty();
+	var list = $('<ul data-role="listview"></ul>');
+	list.append('<li><a href="#view-my-schedule">Upcoming Schedule</a></li>');
+	list.append('<li><a href="<%= to('/book') %>">My Book</a></li>');
+	container.append(list);
+	$('#home').trigger( "create" );
+});
+
+$( document ).delegate("#view-my-schedule", "pagecreate", refreshMySchedule);
+
+function refreshMySchedule() {
+	var container = $('#view-my-schedule .ui-content');
+	container.empty();
+	container.text('Loading...');
+
+	var params = {
+		ssoid : BOSSAPI._ssoid,
+		instructor_id : employee().id,
+		publish : 'true,false', //Both published and non-published schedules.
+		includes : 'rosters',
+		debug : true
+	};
+
+	BOSSAPI.scheduling.meetings.search(params, function(meetings){
+		createMySchedulePage(meetings);
+	});
+}
+
+Handlebars.registerHelper('meeting_time', formatMeetingTime);
+Handlebars.registerHelper('meeting_date', formatMeetingDate);
+Handlebars.registerHelper('meeting_duration', formatMeetingDuration);
+
+var mySchedulePageTemplate = Handlebars.compile($("#my-schedule-page-template").html());
+var meetingPageTemplate = Handlebars.compile($("#meeting-page-template").html());
+var meetingListTemplate = Handlebars.compile($("#meeting").html());
+
+function createMySchedulePage(meetings) {
+	var container = $('#view-my-schedule .ui-content');
+
+	container.empty();
+	container.append(mySchedulePageTemplate({}));
+
+	var last_date = undefined;
+
+	var list = container.find('ul');
+	for(var i = 0 ; i < meetings.length ; i++) {
+		var meeting = meetings[i];
+
+		var meeting_date = BOSSAPI.utils.getDatestampFromDateTime(meeting.start_date);
+		if(last_date != meeting_date) {
+			list.append('<li data-role="list-divider">' + meeting.start_date.toString('ddd, MMMM d, yyyy') + '</li>');
+			last_date = meeting_date;
+		}
+
+		var item = $(meetingListTemplate(meeting));
+		item.find('a').click(function(e){
+			e.preventDefault();
+			var meeting = $(this).parents('li.meeting').data('meeting');
+			createMeetingPage(meeting);
+		});
+		item.data('meeting', meeting);
+		list.append(item);
+	}
+	container.trigger( "create" );
+}
+
+function createMeetingPage(meeting) {
+	$.mobile.changePage("#meeting-details");
+
+	$('#meeting-details .ui-header h1').text( meeting.description + ' at ' + formatMeetingTime(meeting) );
+
+	var container = $('#meeting-details .ui-content');
+	container.empty().append(meetingPageTemplate(meeting));
+
+	var actions = container.find('.actions');
+
+	if(meeting.status != 'cancelled') {
+		actions.append('<a class="cancel" data-role="button">Cancel Appointment</a>');
+		$(document).delegate('#meeting-details .actions a.cancel', 'click', function() {
+		  $(this).simpledialog({
+		    'mode' : 'bool',
+		    'prompt' : 'Are you sure you wish to cancel?',
+		    'useModal': true,
+		    'buttons' : {
+				'Yes': {
+					click: function () {
+						cancelMeeting($('#meeting-details').data('meeting'));
+					}
+				},
+				'Cancel': {
+					click: function () {},
+					icon: "delete",
+					theme: "c"
+				}
+		    }
+		  })
+		});
+	}
+
+	$('#meeting-details').data('meeting', meeting);
+	container.trigger( "create" );
+}
+
+function cancelMeeting(meeting) {
+	BOSSAPI.scheduling.meetings.cancel({
+		data : { id : meeting.id },
+		success : function() {
+			window.history.back();
+			refreshMySchedule();
+		},
+		error : function() {
+			alert('This reservation cannot be cancelled.  Please see your Department Head if you need additional assistance.');
+		}
+	});
+}
+
+function formatMeetingTime(meeting) {
+	return meeting.start_date.toString('h:mm tt');
+}
+function formatMeetingDate(meeting) {
+	return meeting.start_date.toString('ddd, MMMM d, yyyy');
+}
+function formatMeetingDuration(meeting) {
+	return (meeting.duration / 60) + ' mins';
+}
+</script>
 </html>

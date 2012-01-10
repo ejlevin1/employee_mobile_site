@@ -1,0 +1,34 @@
+<meta name="viewport" content="width=device-width, initial-scale=1"> 
+<link rel="stylesheet" href="http://code.jquery.com/mobile/1.0/jquery.mobile-1.0.min.css" />
+<link rel="stylesheet" type="text/css" href="http://dev.jtsage.com/cdn/simpledialog/latest/jquery.mobile.simpledialog.css" />
+<link rel="stylesheet" href="<%= to('/css/application.css') %>" />
+<script type="text/javascript" src="http://code.jquery.com/jquery-1.6.4.min.js"></script>
+<script type="text/javascript" src="http://code.jquery.com/mobile/1.0/jquery.mobile-1.0.min.js"></script>
+<script type="text/javascript" src="http://dev.jtsage.com/cdn/simpledialog/latest/jquery.mobile.simpledialog.js"></script>
+<script type="text/javascript" src="<%= to('/js/application.js') %>"></script>
+<script type="text/javascript" src="<%= to('/js/date.js') %>"></script>
+<script type="text/javascript" src="<%= to('/js/handlebars-1.0.0.beta.6.js') %>"></script>
+<script type="text/javascript" src="<%= "#{settings.boss_data_server}js/bossapi_v1.js" %>"></script>
+<script type="text/javascript">
+<%if ssoid %>
+	BOSSAPI.init('<%= ssoid %>');
+	BOSSAPI.auth.info({
+		success : function(data) {
+			if(data['employee'] != undefined) {
+				$(document).trigger('onAuthenticated', data.employee);
+				$(document).data('employee', data.employee); 
+
+				keepAlive();
+			}
+			else {
+				window.location.href = '<%= to('/logout') %>';
+			}
+		},
+		error : function(error) {
+			window.location.href = '<%= to('/logout') %>';
+		}
+	});
+<% else %>
+	BOSSAPI.init();
+<% end %>
+</script>
