@@ -112,6 +112,9 @@
 <script id="client-list-item-template" type="text/x-handlebars-template">
   <li class="client"><a href="#">{{name}}&nbsp;({{member_id}})</a></li>
 </script>
+<script id="client-detail-history-item-template" type="text/x-handlebars-template">
+<div>{{meeting_date this}} {{meeting_time this}} -- {{description}} ({{meeting_duration this}})</div>
+</script>
 <script id="client-detail-template" type="text/x-handlebars-template">
 	<ul data-role="listview">
 		<li>
@@ -134,6 +137,13 @@
 				<a data-role="button" data-theme="b" href="tel:{{phone}}">Schedule Appointment</a>
 				<a data-role="button" href="mailto:{{email}}">Send Email</a>
 				<a data-role="button" href="tel:{{phone}}">Call</a>
+			</div>
+		</li>
+		<li>
+			<label>Interactions</label>
+			<br/><br/>
+			<div class="rosters">
+				
 			</div>
 		</li>
 	</ul>
@@ -165,8 +175,7 @@ function refreshMySchedule() {
 		ssoid : BOSSAPI._ssoid,
 		instructor_id : employee().id,
 		publish : 'true,false', //Both published and non-published schedules.
-		includes : 'rosters',
-		debug : true
+		includes : 'rosters'
 	};
 
 	BOSSAPI.scheduling.meetings.search(params, function(meetings){
@@ -208,6 +217,7 @@ var meetingPageTemplate = Handlebars.compile($("#meeting-page-template").html())
 var meetingListTemplate = Handlebars.compile($("#meeting").html());
 var clientListItemTemplate = Handlebars.compile($("#client-list-item-template").html());
 var clientDetailTemplate = Handlebars.compile($("#client-detail-template").html());
+var clientDetailHistoryItemTemplate = Handlebars.compile($("#client-detail-history-item-template").html());
 
 function createMySchedulePage(meetings) {
 	var container = $('#view-my-schedule .ui-content');
@@ -324,11 +334,29 @@ function showClient(client) {
 			container.find('h1').empty().text(BOSSAPI.utils.formatString('{last}, {first}', member.name));
 			contents.empty().append(clientDetailTemplate(member));
 			container.trigger('create');
+
+			var params = {
+				ssoid : BOSSAPI._ssoid,
+				instructor_id : employee().id,
+				publish : 'true,false', //Both published and non-published schedules.
+				member_id : client.member_id
+			};
+
+			container.find('div.rosters').empty().append('Loading...');
+			BOSSAPI.scheduling.meetings.search(params, function(meetings){
+				container.find('div.rosters').empty();
+				for(var i = 0 ; i < meetings.length ; i++) {
+					container.find('div.rosters').append(clientDetailHistoryItemTemplate(meetings[i]));
+				}
+				container.find('div.rosters').trigger('create');
+			});
 		},
 		error : function() {
 			alert('Failed to lookup member information.');
 		}
 	});
+
+	
 }
 
 function formatMeetingTime(meeting) {
