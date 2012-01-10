@@ -7,38 +7,55 @@
 </head> 
 <body> 
 
-<div data-role="page" data-add-back-btn="true" id="home">
-	<div data-role="header">
-		<h1>Employee Access</h1>
+	<div data-role="page" data-add-back-btn="true" id="home">
+		<div data-role="header">
+			<h1>Employee Access</h1>
+		</div>
+		<div data-role="content">	
+			Loading...	
+		</div>
+		<div data-role="footer">
+			<h4 class="username"></h4>
+		</div>
 	</div>
-	<div data-role="content">	
-		Loading...	
-	</div>
-	<div data-role="footer">
-		<h4 class="username"></h4>
-	</div>
-</div>
 
-<div data-role="page" id="view-my-schedule" data-add-back-btn="true">
-	<div data-role="header">
-		<h1>My Schedule</h1>
-		<a class="new-appointment ui-btn-right" data-icon="plus">New Appointment</a>
+	<div data-role="page" id="view-my-schedule" data-add-back-btn="true">
+		<div data-role="header">
+			<h1>My Schedule</h1>
+			<a class="new-appointment ui-btn-right" data-icon="plus">New Appointment</a>
+		</div>
+		<div data-role="content">	
+		</div>
+		<div data-role="footer">
+			<h4 class="username"></h4>
+		</div>
 	</div>
-	<div data-role="content">	
-	</div>
-	<div data-role="footer">
-		<h4 class="username"></h4>
-	</div>
-</div>
 
-<div data-role="page" id="meeting-details" data-add-back-btn="true">
-	<div data-role="header">
-		<h1></h1>
+	<div data-role="page" id="meeting-details" data-add-back-btn="true">
+		<div data-role="header">
+			<h1></h1>
+		</div>
+		<div data-role="content">	
+			Meeting details.
+		</div>
 	</div>
-	<div data-role="content">	
-		Meeting details.
+
+	<div id="my-book-page" data-role="page" data-add-back-btn="true">
+		<div data-role="header">
+			<h1>My Book</h1>
+		</div>
+		<div data-role="content">
+			Loading...
+		</div>
 	</div>
-</div>
+
+	<div id="client-details" data-role="page" data-add-back-btn="true">
+		<div data-role="header">
+			<h1></h1>
+		</div>
+		<div data-role="content">	
+		</div>
+	</div>
 
 </body>
 <script id="my-schedule-page-template" type="text/x-handlebars-template">
@@ -92,6 +109,35 @@
 <script id="meeting" type="text/x-handlebars-template">
   <li class="meeting {{status}}"><a href="#">{{meeting_time this}} - {{description}} {{#rosters}} with {{member.name}}{{/rosters}}</a></li>
 </script>
+<script id="client-list-item-template" type="text/x-handlebars-template">
+  <li class="client"><a href="#">{{name}}&nbsp;({{member_id}})</a></li>
+</script>
+<script id="client-detail-template" type="text/x-handlebars-template">
+	<ul data-role="listview">
+		<li>
+			<div data-role="fieldcontain">
+				<label for="join_date">Member Since:</label>
+				<span>{{formatJoinDate this}}</span>
+			</div>
+			<div data-role="fieldcontain">
+				<label for="email">Email:</label>
+				<span>{{email}}</span>
+			</div>
+			<div data-role="fieldcontain">
+				<label for="phone">Phone:</label>
+				<span>{{phone}}</span>	
+			</div>
+		</li>
+		<li>
+			<label>Actions</label>
+			<div>
+				<a data-role="button" data-theme="b" href="tel:{{phone}}">Schedule Appointment</a>
+				<a data-role="button" href="mailto:{{email}}">Send Email</a>
+				<a data-role="button" href="tel:{{phone}}">Call</a>
+			</div>
+		</li>
+	</ul>
+</script>
 <script type="text/javascript">
 
 $(document).bind("onAuthenticated", function(e, employee){
@@ -102,12 +148,13 @@ $(document).bind("onAuthenticated", function(e, employee){
 	var container = $('#home .ui-content').empty();
 	var list = $('<ul data-role="listview"></ul>');
 	list.append('<li><a href="#view-my-schedule">Upcoming Schedule</a></li>');
-	list.append('<li><a href="<%= to('/book') %>">My Book</a></li>');
+	list.append('<li><a href="#my-book-page">My Book</a></li>');
 	container.append(list);
 	$('#home').trigger( "create" );
 });
 
 $( document ).delegate("#view-my-schedule", "pagecreate", refreshMySchedule);
+$( document ).delegate("#my-book-page", "pagecreate", refreshMyBook);
 
 function refreshMySchedule() {
 	var container = $('#view-my-schedule .ui-content');
@@ -127,13 +174,40 @@ function refreshMySchedule() {
 	});
 }
 
+function refreshMyBook() {
+	var settings = {
+		url : BOSSAPI.utils.formatString( '{url}mms/employee/clients.json' ,{ url : BOSSAPI._url }),
+		data : BOSSAPI.includeSecureParams({}),
+		success : function(data){
+			createBook(data);
+		},
+		error : function() {
+			alert('Failed to load your customer book.  Please retry later and if the problem persists contact support.');
+		}
+	};
+	$.ajax({
+	    url : settings.url,
+	    data : settings.data,
+	    dataType : 'jsonp',
+	    type : 'GET',
+	    success : function(data) {
+	        BOSSAPI.utils._handleServerResponse(settings, data);
+	    }
+	});
+}
+
 Handlebars.registerHelper('meeting_time', formatMeetingTime);
 Handlebars.registerHelper('meeting_date', formatMeetingDate);
 Handlebars.registerHelper('meeting_duration', formatMeetingDuration);
+Handlebars.registerHelper('formatJoinDate', function(member) {
+	return (new Date(member.join_date * 1000)).toString('MMMM yyyy');
+});
 
 var mySchedulePageTemplate = Handlebars.compile($("#my-schedule-page-template").html());
 var meetingPageTemplate = Handlebars.compile($("#meeting-page-template").html());
 var meetingListTemplate = Handlebars.compile($("#meeting").html());
+var clientListItemTemplate = Handlebars.compile($("#client-list-item-template").html());
+var clientDetailTemplate = Handlebars.compile($("#client-detail-template").html());
 
 function createMySchedulePage(meetings) {
 	var container = $('#view-my-schedule .ui-content');
@@ -211,6 +285,48 @@ function cancelMeeting(meeting) {
 		},
 		error : function() {
 			alert('This reservation cannot be cancelled.  Please see your Department Head if you need additional assistance.');
+		}
+	});
+}
+
+function createBook(clients) {
+	var container = $('#my-book-page');
+
+	var contents = container.find('.ui-content');
+	contents.empty();
+
+	var list = $('<ul data-role="listview"></ul>');
+	for(var i = 0 ; i < clients.length ; i++) {
+		var listItem = $(clientListItemTemplate(clients[i].client));
+		listItem.data('client', clients[i].client);
+		listItem.find('a').click(function(){
+			showClient($(this).parents('li.client').data('client'));
+		});
+		list.append(listItem);
+	}
+	contents.append(list);
+	container.trigger('create');
+}
+
+function showClient(client) {
+	$.mobile.changePage("#client-details");
+
+	var container = $('#client-details');
+
+	var contents = container.find('.ui-content');
+	contents.empty().text('Loading...');
+
+	BOSSAPI.auth.info({
+		data : {
+			member_id : client.member_id,
+		},
+		success : function(member) {
+			container.find('h1').empty().text(BOSSAPI.utils.formatString('{last}, {first}', member.name));
+			contents.empty().append(clientDetailTemplate(member));
+			container.trigger('create');
+		},
+		error : function() {
+			alert('Failed to lookup member information.');
 		}
 	});
 }

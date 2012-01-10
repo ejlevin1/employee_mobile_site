@@ -36,11 +36,6 @@ class App < Sinatra::Application
 		render :erb, :index
 	end
 
-	get '/book' do
-		require_authenticated!
-		render :erb, :book
-	end
-
 	get '/login' do
 		redirect to('/') if !session['ssoid'].nil? && session['ssoid'] != ''
 		render :erb, :login

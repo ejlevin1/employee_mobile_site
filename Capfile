@@ -39,7 +39,7 @@ desc "qa environment"
 task :qa do
   set :ssh_options,  { :forward_agent => true, :port => 22, :paranoid => false }
 
-  set :domain, "frankqa.lifetimefitness.com"
+  set :domain, "frank-qa.lifetimefitness.com"
 
   host = "mncoboss38"
   host = Capistrano::CLI.ui.ask("Host: ") { |q| q.default = host }
@@ -54,6 +54,27 @@ task :qa do
   set :deploy_via,   :remote_cache
   set(:branch) { Capistrano::CLI.ui.ask("Branch: ") { |q| q.default = default_branch } }
   set :rack_env,   	'qa'
+end
+
+desc "prodsup environment"
+task :prodsup do
+  set :ssh_options,  { :forward_agent => true, :port => 22, :paranoid => false }
+
+  set :domain, "frank-prodsup.lifetimefitness.com"
+
+  host = "mncoboss44"
+  host = Capistrano::CLI.ui.ask("Host: ") { |q| q.default = host }
+
+  host = "#{host}.ltfinc.net" if !host.index(/ltfinc/)
+  puts "Deploying to [#{host}]"
+
+  role :app,         host
+  role :web,         host
+  role :db,          host, :primary => true
+
+  set :deploy_via,   :remote_cache
+  set(:branch) { Capistrano::CLI.ui.ask("Branch: ") { |q| q.default = default_branch } }
+  set :rack_env,    'prodsup'
 end
 
 namespace :rvm do
