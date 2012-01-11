@@ -305,7 +305,7 @@ function createBook(clients) {
 	var contents = container.find('.ui-content');
 	contents.empty();
 
-	var list = $('<ul data-role="listview"></ul>');
+	var list = $('<ul data-role="listview" data-filter="true" data-inset="true"></ul>');
 	for(var i = 0 ; i < clients.length ; i++) {
 		var listItem = $(clientListItemTemplate(clients[i].client));
 		listItem.data('client', clients[i].client);
