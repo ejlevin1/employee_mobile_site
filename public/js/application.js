@@ -29,7 +29,7 @@ function keepAlive() {
         alert('error pinging server.');
       }
     });
-  }, 60000 * 5);
+  }, 60 * 1000);
 }
 
 function employee(){
