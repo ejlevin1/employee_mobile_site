@@ -57,12 +57,14 @@
   <li class="client"><a href="#">{{name}}&nbsp;({{member_id}})</a></li>
 </script>
 <script id="date-select-widget-template" type="text/x-handlebars-template">
-<label for="{{name}}">{{text}}</label>
-<input name="{{name}}" type="date" data-role="datebox" data-options="{ 'mode' : 'calbox', 'calTodayButton' : true }" ></input>
+<div data-role="fieldcontain" class="ui-hide-label">
+	<label for="{{name}}">{{text}}</label>
+	<input type="text" name="{{name}}" id="{{name}}" class="mobiscroll" ></input>
+</div>
 </script>
 <script id="checkbox-widget-template" type="text/x-handlebars-template">
-<input type="checkbox" name="{{name}}" id="{{name}}" />
-<label for="{{name}}">{{text}}</label>
+	<input type="checkbox" name="{{name}}" id="{{name}}" />
+	<label for="{{name}}">{{text}}</label>
 </script>
 <script id="client-detail-history-item-template" type="text/x-handlebars-template">
 <div>{{meeting_date this}} {{meeting_time this}} -- {{description}} ({{meeting_duration this}})</div>
@@ -116,7 +118,7 @@ Handlebars.registerHelper('formatJoinDate', function(member) {
 	return (new Date(member.join_date * 1000)).toString('MMMM yyyy');
 });
 
-function renderDateSelector(name, text) {
+function renderDateField(name, text) {
 	return dateSelectWidgetTemplate({ name : name, text : text });
 }
 function renderCheckbox(name, text) {

@@ -46,6 +46,22 @@ function formatMeetingDuration(meeting) {
   return (meeting.duration / 60) + ' mins';
 }
 
+
+function findNextMeeting(date, meetings) {
+  var next = undefined;
+  if(meetings != undefined) {
+    for(var i = 0 ; i < meetings.length ; i++) {
+      var meeting = meetings[i];
+      if(meeting.start_date >= date) {
+        if(next == undefined || next.start_date > meeting.start_date) {
+          next = meeting;
+        }
+      }
+    } 
+  }
+  return next;
+}
+
 function retrieveBook(settings) {
 
   settings['data'] = BOSSAPI.includeSecureParams(settings['data'])
@@ -72,6 +88,52 @@ function retrieveBook(settings) {
       dataType : 'jsonp',
       type : 'GET',
       success : function(data) {
+          BOSSAPI.utils._handleServerResponse(settings, data);
+      }
+  });
+}
+
+function searchSchedule(settings) {
+
+  settings['data'] = BOSSAPI.includeSecureParams(settings['data'])
+
+  if(settings['url'] == undefined) {
+    settings['url'] = BOSSAPI.utils.formatString( '{url}employee/schedule.json' , { url : BOSSAPI._url }); 
+  }
+
+  if(settings['success'] == undefined) {
+    settings['success'] = function(data) {
+      alert('You need to properly handle your search results.');
+    };
+  }
+
+  if(settings['error'] == undefined) {
+    settings['error'] = function() {
+      alert('Failed to search schedule.  Please retry later and if the problem persists contact support.');
+    };
+  }
+
+  $.ajax({
+      url : settings.url,
+      data : settings.data,
+      dataType : 'jsonp',
+      type : 'GET',
+      success : function(data) {
+
+          if(data['availability'] != undefined) {
+            for(var i = 0 ; i < data.availability.length ; i++) {
+              data.availability[i].start_date = new Date(data.availability[i].start_date * 1000);
+              data.availability[i].end_date = new Date(data.availability[i].end_date * 1000);
+            }
+          }
+
+          if(data['meetings'] != undefined) {
+            for(var i = 0 ; i < data.meetings.length ; i++) {
+              data.meetings[i].start_date = new Date(data.meetings[i].start_date * 1000);
+              data.meetings[i].end_date = new Date(data.meetings[i].end_date * 1000);
+            }
+          }
+
           BOSSAPI.utils._handleServerResponse(settings, data);
       }
   });

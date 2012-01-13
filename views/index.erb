@@ -94,6 +94,10 @@ function resetAppointmentWizard() {
 	refreshAppointmentWizard();
 }
 
+function appointmentProcess() {
+	return $('#new-appointment .ui-content').data('appointment-process');
+}
+
 function refreshAppointmentWizard() {
 	var container = $('#new-appointment .ui-content');
 	var process = container.data('appointment-process');
@@ -181,7 +185,7 @@ function refreshAppointmentWizard() {
 				container.append('<div data-role="fieldcontain"><div class="results"></div></div>');
 			}
 			else {
-				container.append('<h3>Select Member From Book</h3>');
+				container.append('<div class="loading">Looking up your book...</div>').trigger('create');
 				retrieveBook({
 					success : function(data){
 						createBook(container, data);
@@ -206,59 +210,166 @@ function refreshAppointmentWizard() {
 				}
 			});	
 		}
-		else {
-			//Now we have a fully loaded member.... Lets select the day
-
-			// container.append(renderDateSelector('appointment-date','Date'));
-
-
-			var baseDate = Date.today();
-
-			container.append('<input type="text" name="date1" id="date1" class="mobiscroll" />');
-			container.find('.mobiscroll').val(baseDate.toString('MM/dd/yyyy')).scroller();
-
-			var timeSelector = $('<div data-role="fieldcontain"><fieldset data-role="controlgroup"></fieldset></div>');
-			container.append(timeSelector);
-			timeSelector = timeSelector.find('fieldset');
-
-			// We need to get the availability for this particular employee and classes that they currently have scheduled.
-
-			var range = [BOSSAPI.utils.getTimestampFromDateTime(new Date(2000,01,01,06,00,00,00)),
-							BOSSAPI.utils.getTimestampFromDateTime(new Date(2000,01,01,20,00,00,00))];
-			var duration = 30 * 60 * 1000;
+		else if (process['date_range'] == undefined) {
 			
-			while(range[0] < range[1]) {
-				var time = new Date(baseDate.getTime() + range[0]);
+			container.append(renderDateField('date1','Date'));
 
-				var id = 'timeslot-' + time.getTime();
+			var timeslotContainer = $('<div class="timeslot-selection-container"></div>');
+			container.append(timeslotContainer);
 
-				var checkbox = $('<input type="checkbox"></input>');
-				checkbox.attr('id', id).attr('name', id);
-
-				if(time.getTime() >= 1326380400000 && time.getTime() <= 1326387600000) {
-					checkbox.attr('disabled','disabled').data('theme','a');
+			container.find('.mobiscroll').val(Date.today().toString('MM/dd/yyyy')).scroller({
+				onSelect : function(e) {
+					var d = container.find('.mobiscroll').scroller('getDate');
+					refreshTimeslotSelection(d, timeslotContainer);
 				}
+			});
 
-				timeSelector.append(checkbox);
+			refreshTimeslotSelection(Date.today(), timeslotContainer);
+		}
+		else {
+			//Confirm the appointment here....
 
-				var label = $('<label></label>');
-				label.attr('for', id).text(time.toString('h:mm tt'));
-				timeSelector.append(label);
-				
-				// timeSelector.append(renderCheckbox('timeslot-' + range[0], ));
+			var msg = BOSSAPI.utils.formatString('Are you sure you want to book an appointment with {name} at {start_date} - {end_date}?',
+						{ 
+							name: process.member.name.first + ' ' + process.member.name.last,
+							start_date : process.date_range[0].toString('ddd, MMMM d h:mm'), 
+							end_date : process.date_range[1].toString('h:mm tt') 
+						});
+			container.append('<p>' + msg + '</p>');
 
-				// var slot = $('<li class="slot" data-timestamp="' + range[0] + '"></li>');
-				// slot.append('<input type="checkbox"></input>');
-				// slot.append('<span class="label">' + time.toString('h:mm tt') + '</span>');
-				// timeSelector.append(slot);	
-				range[0] = range[0] + duration;
-			}
+			var link = $('<a data-role="button" data-theme="b">Confirm</a>');
+			link.click(function(e){
+				e.preventDefault();
+				alert('TODO');
+			});
+			container.append(link);
+
+			link = $('<a data-role="button">No</a>');
+			link.click(function(e){
+				e.preventDefault();
+				$.mobile.changePage("#home");
+			});
+			container.append(link);
 		}
 	}
 
 	container.data('appointment-process',process);
 	container.trigger('create');
 }
+
+function refreshTimeslotSelection(date, container) {
+	container.empty();
+
+	container.append('<div class="loading">Searching your schedule</div>');
+
+	searchSchedule({
+		data : {
+			date_range : date.toString('MM/dd/yyyy') + '-' + date.toString('MM/dd/yyyy'),
+			debug : true
+		},
+		success : function(data) {
+			renderTimeslotSelectionSchedule(data, container);
+		}
+	});
+}
+
+function renderTimeslotSelectionSchedule(results, container) {
+	container.empty().data('results', results);
+
+	var list = $('<ul class="timeslots padded" data-role="listview"></ul>');
+
+	var range = undefined;
+	var duration = 30 * 60 * 1000;
+	if(results['availability'] != undefined && results['availability'].length > 0) {
+		range = [results.availability[0].start_date, results.availability[0].end_date];
+	}
+
+	if(range != undefined) {
+		for(var date = range[0] ; date < range[1] ; date = new Date(date.getTime() + duration)) {
+
+			//Lets check whether this timeslot is taken or not....
+			var end = new Date(date.getTime() + (duration - 1));
+
+			var meeting = undefined;
+			if(results['meetings'] != undefined) {
+				for(var i = 0 ; i < results.meetings.length ; i++) {
+					var mtg = results.meetings[i];
+					if(mtg.start_date <= date && mtg.end_date > date) {
+						meeting = mtg;
+					}
+				}
+			}
+
+			var item = undefined;
+			if(meeting == undefined) {
+				item = $(BOSSAPI.utils.formatString('<li class="timeslot"><a>{time}</a></li>' , { time : date.toString('h:mm tt') }));
+			}
+			else {
+				item = $(BOSSAPI.utils.formatString('<li class="timeslot unavailable" data-theme="b">{description}</li>', meeting));
+			}
+			item.data('date', date);
+
+			item.find('a').click(function(e){
+				var date = $(this).parents('li.timeslot').data('date');
+				var results = container.data('results');
+
+				var next = findNextMeeting(date, results['meetings']);
+				var max = next != undefined ? next.start_date : results.availability[0].end_date;
+
+				renderDurationSelection(date, max, duration, container, function(range) {
+					appointmentProcess().date_range = range;
+					refreshAppointmentWizard();
+				});
+			});
+
+			list.append(item);
+		}
+	}
+
+	container.append(list).trigger('create');
+}
+
+function renderDurationSelection(start, max, duration, container, onSelect) {
+	container.find('ul.timeslots').css('display','none');
+
+	var durationContainer = $('<div class="duration-selection-container"></div>');
+
+	var cleanUp = function() {
+		durationContainer.remove();
+		container.find('ul.timeslots').css('display','block');
+		container.trigger('create');
+	}
+
+	var list = $('<ul class="durations padded" data-role="listview"></ul>');
+	for( var date = start ; date < max ; date = new Date(date.getTime() + duration) ) {
+		var end = new Date(date.getTime() + duration);
+		var minutes = (end - start) / 60000;		
+
+		var item = $('<a>(' + minutes + ' mins) ' + start.toString('h:mm tt') + '-' + end.toString('h:mm tt') + '</a>');
+		item.data('range', [start, end]);
+		list.append(item);
+
+		item.click(function(e) {
+			e.preventDefault();
+			var range = $(this).data('range');
+			cleanUp();
+			onSelect(range);
+		});
+	}
+	list.find('a').wrap('<li class="duration"></li>');
+	durationContainer.append(list);
+
+	var cancel = $('<a data-role="button">Cancel</a>');
+	cancel.click(function(e){
+		e.preventDefault();
+		cleanUp();
+	});
+	durationContainer.append(cancel);
+
+	container.append(durationContainer).trigger('create');
+}
+
+
 
 function attachWizardClientLinks() {
 	$('#new-appointment .ui-content li.client a').click(function(){

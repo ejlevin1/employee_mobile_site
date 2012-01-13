@@ -1,3 +1,7 @@
 li.meeting.cancelled a.ui-link-inherit {
   text-decoration: line-through !important;
 }
+.ui-content ul.padded {
+	padding-top: 25px;
+	padding-bottom: 25px;
+}
