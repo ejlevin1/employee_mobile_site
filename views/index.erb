@@ -57,97 +57,17 @@
 		</div>
 	</div>
 
+	<div id="new-appointment" data-role="page" data-title="New Appointment">
+		<div data-role="header">
+			<h1>New Appointment</h1>
+			<a href="#home" data-iconpos="notext" data-icon="home" title="Home" data-theme="a"></a>
+		</div>
+		<div data-role="content">	
+		</div>
+	</div>
+
 </body>
-<script id="my-schedule-page-template" type="text/x-handlebars-template">
-	<ul data-role="listview">
-
-	</ul>
-</script>
-<script id="meeting-page-template" type="text/x-handlebars-template">
-	<h3>{{ description }}</h3>
-
-	<div data-role="fieldcontain">
-		<label for="date_time">Time</label>
-		<input type="text" name="date_time" readonly="readonly" value="{{meeting_date this}} at {{meeting_time this}}"  />	
-	</div>
-	<div data-role="fieldcontain">
-		<label for="duration">Duration</label>
-		<input type="text" name="duration" readonly="readonly" value="{{meeting_duration this}}"  />	
-	</div>
-
-	<fieldset>
-		<legend>Roster</legend>
-		<ul class="rosters">
-			{{#rosters}}<li class="roster">{{member.name}}&nbsp;({{member.id}})</li>{{/rosters}}
-			{{^rosters}}<li class="empty">No one is currently rostered.</li>{{/rosters}}
-		</ul>
-	</fieldset>
-
-	<div class="actions" data-role="controlgroup">
-	</div>
-
-	<div data-role="collapsible" data-state="collapsed">
-		<h3>Debug</h3>
-		<div data-role="fieldcontain">
-			<label for="reservation_id">Reservation ID</label>
-			<input type="text" name="reservation_id" readonly="readonly" value="{{reservation_id}}"  />	
-		</div>
-		<div data-role="fieldcontain">
-			<label for="status">Status</label>
-			<input type="text" name="status" readonly="readonly" value="{{status}}"  />	
-		</div>
-		<div data-role="fieldcontain">
-			<label for="reservation_type">Type</label>
-			<input type="text" name="reservation_type" readonly="readonly" value="{{reservation_type}}"  />	
-		</div>
-		<div data-role="fieldcontain">
-			<label for="id">Key</label>
-			<input type="text" name="id" readonly="readonly" value="{{id}}"  />	
-		</div>
-    </div>
-</script>
-<script id="meeting" type="text/x-handlebars-template">
-  <li class="meeting {{status}}"><a href="#">{{meeting_time this}} - {{description}} {{#rosters}} with {{member.name}}{{/rosters}}</a></li>
-</script>
-<script id="client-list-item-template" type="text/x-handlebars-template">
-  <li class="client"><a href="#">{{name}}&nbsp;({{member_id}})</a></li>
-</script>
-<script id="client-detail-history-item-template" type="text/x-handlebars-template">
-<div>{{meeting_date this}} {{meeting_time this}} -- {{description}} ({{meeting_duration this}})</div>
-</script>
-<script id="client-detail-template" type="text/x-handlebars-template">
-	<ul data-role="listview">
-		<li>
-			<div data-role="fieldcontain">
-				<label for="join_date">Member Since:</label>
-				<span>{{formatJoinDate this}}</span>
-			</div>
-			<div data-role="fieldcontain">
-				<label for="email">Email:</label>
-				<span>{{email}}</span>
-			</div>
-			<div data-role="fieldcontain">
-				<label for="phone">Phone:</label>
-				<span>{{phone}}</span>	
-			</div>
-		</li>
-		<li>
-			<label>Actions</label>
-			<div>
-				<a data-role="button" data-theme="b" href="tel:{{phone}}">Schedule Appointment</a>
-				<a data-role="button" href="mailto:{{email}}">Send Email</a>
-				<a data-role="button" href="tel:{{phone}}">Call</a>
-			</div>
-		</li>
-		<li>
-			<label>Interactions</label>
-			<br/><br/>
-			<div class="rosters">
-				
-			</div>
-		</li>
-	</ul>
-</script>
+<%= partial(:_templates) %>
 <script type="text/javascript">
 
 $(document).bind("onAuthenticated", function(e, employee){
@@ -157,6 +77,7 @@ $(document).bind("onAuthenticated", function(e, employee){
 	//Create the home page...
 	var container = $('#home .ui-content').empty();
 	var list = $('<ul data-role="listview"></ul>');
+	list.append('<li><a href="" onclick="resetAppointmentWizard(); return false;">New Appointment</a></li>');
 	list.append('<li><a href="#view-my-schedule">Upcoming Schedule</a></li>');
 	list.append('<li><a href="#my-book-page">My Book</a></li>');
 	container.append(list);
@@ -165,6 +86,191 @@ $(document).bind("onAuthenticated", function(e, employee){
 
 $( document ).delegate("#view-my-schedule", "pagecreate", refreshMySchedule);
 $( document ).delegate("#my-book-page", "pagecreate", refreshMyBook);
+$( document ).delegate("#new-appointment", "pagecreate", refreshAppointmentWizard);
+
+function resetAppointmentWizard() {
+	$('#new-appointment .ui-content').data('appointment-process',{});
+	$.mobile.changePage("#new-appointment");
+	refreshAppointmentWizard();
+}
+
+function refreshAppointmentWizard() {
+	var container = $('#new-appointment .ui-content');
+	var process = container.data('appointment-process');
+	if(process == undefined) { 
+		process = {} 
+	};
+	
+	container.empty();
+	if(process['member'] == undefined){
+		if(process['memberSource'] == undefined){
+
+			var btn = $('<a href="#" data-role="button" data-theme="b">Select Member From Book</a>');
+			btn.click(function(e){
+				e.preventDefault();
+				process['memberSource'] = 'book';
+				refreshAppointmentWizard();
+			});
+			container.append(btn);
+
+			btn = $('<a href="#" data-role="button">Find Member in MMS</a>');
+			btn.click(function(e){
+				e.preventDefault();
+				process['memberSource'] = 'mms';
+				refreshAppointmentWizard();
+			});
+			container.append(btn);
+		}
+		else {
+			if(process.memberSource == 'mms') {
+
+				container.append('<h3>Find Member</h3>');
+
+				var fieldContainer = $('<div data-role="fieldcontain"></div>');
+				container.append(fieldContainer);
+
+				fieldContainer.append('<label for="name">Name</label>');
+				fieldContainer.append('<input type="text" name="name" value="LeVin, E" placeholder="Last, First"></input>');
+
+				var btn = $('<a data-role="button">Search</a>');
+				btn.click(function(e){
+					e.preventDefault();
+
+					if(btn.hasClass('disabled')) {
+						return;
+					}
+
+					btn.addClass('disabled').find('.ui-btn-text').text('... Searching ...');
+
+					var name = container.find('input[name=name]').val();
+					name = name.split(',');
+					if(name.length != 2) {
+						alert('Please specify the name as: LAST, FIRST');
+						return;
+					}
+
+					container.find('ul.results').remove();
+
+					searchMembers({
+						data : {
+							first_name : name[1],
+							last_name : name[0]
+						},
+						success : function(data) {
+							
+							btn.removeClass('disabled').find('.ui-btn-text').text('Search');
+
+							var list = $('<ul class="results" data-role="listview" data-inset="true"></ul>');
+							for(var i = 0 ; i < data.member.length ; i++) {
+								var member = data.member[i];
+								member['name'] = BOSSAPI.utils.formatString('{first} {last}' , member.name);
+
+								var item = $(clientListItemTemplate(member));
+								item.data('client', member);
+								list.append(item);
+							}
+							container.append(list);
+							container.trigger('create');
+
+							attachWizardClientLinks();
+						}
+					});
+				});
+				fieldContainer.append(btn);
+
+				container.append('<div data-role="fieldcontain"><div class="results"></div></div>');
+			}
+			else {
+				container.append('<h3>Select Member From Book</h3>');
+				retrieveBook({
+					success : function(data){
+						createBook(container, data);
+						attachWizardClientLinks();
+					}
+				});
+			}
+		}
+	}
+	else {
+		if(process.member['membership_id'] == undefined) {
+			BOSSAPI.auth.info({
+				data : {
+					member_id : process.member.member_id,
+				},
+				success : function(member) {
+					process.member = member;
+					refreshAppointmentWizard();
+				},
+				error : function() {
+					alert('Failed to lookup member information.');
+				}
+			});	
+		}
+		else {
+			//Now we have a fully loaded member.... Lets select the day
+
+			// container.append(renderDateSelector('appointment-date','Date'));
+
+
+			var baseDate = Date.today();
+
+			container.append('<input type="text" name="date1" id="date1" class="mobiscroll" />');
+			container.find('.mobiscroll').val(baseDate.toString('MM/dd/yyyy')).scroller();
+
+			var timeSelector = $('<div data-role="fieldcontain"><fieldset data-role="controlgroup"></fieldset></div>');
+			container.append(timeSelector);
+			timeSelector = timeSelector.find('fieldset');
+
+			// We need to get the availability for this particular employee and classes that they currently have scheduled.
+
+			var range = [BOSSAPI.utils.getTimestampFromDateTime(new Date(2000,01,01,06,00,00,00)),
+							BOSSAPI.utils.getTimestampFromDateTime(new Date(2000,01,01,20,00,00,00))];
+			var duration = 30 * 60 * 1000;
+			
+			while(range[0] < range[1]) {
+				var time = new Date(baseDate.getTime() + range[0]);
+
+				var id = 'timeslot-' + time.getTime();
+
+				var checkbox = $('<input type="checkbox"></input>');
+				checkbox.attr('id', id).attr('name', id);
+
+				if(time.getTime() >= 1326380400000 && time.getTime() <= 1326387600000) {
+					checkbox.attr('disabled','disabled').data('theme','a');
+				}
+
+				timeSelector.append(checkbox);
+
+				var label = $('<label></label>');
+				label.attr('for', id).text(time.toString('h:mm tt'));
+				timeSelector.append(label);
+				
+				// timeSelector.append(renderCheckbox('timeslot-' + range[0], ));
+
+				// var slot = $('<li class="slot" data-timestamp="' + range[0] + '"></li>');
+				// slot.append('<input type="checkbox"></input>');
+				// slot.append('<span class="label">' + time.toString('h:mm tt') + '</span>');
+				// timeSelector.append(slot);	
+				range[0] = range[0] + duration;
+			}
+		}
+	}
+
+	container.data('appointment-process',process);
+	container.trigger('create');
+}
+
+function attachWizardClientLinks() {
+	$('#new-appointment .ui-content li.client a').click(function(){
+		var client = $(this).parents('li.client').data('client');
+		var container = $('#new-appointment .ui-content');
+
+		var process = container.data('appointment-process');
+		process.member = client;
+
+		refreshAppointmentWizard();
+	});
+}
 
 function refreshMySchedule() {
 	var container = $('#view-my-schedule .ui-content');
@@ -173,7 +279,7 @@ function refreshMySchedule() {
 
 	var params = {
 		ssoid : BOSSAPI._ssoid,
-		instructor_id : employee().id,
+		employee_number : employee().id,
 		publish : 'true,false', //Both published and non-published schedules.
 		includes : 'rosters'
 	};
@@ -184,40 +290,17 @@ function refreshMySchedule() {
 }
 
 function refreshMyBook() {
-	var settings = {
-		url : BOSSAPI.utils.formatString( '{url}mms/employee/clients.json' ,{ url : BOSSAPI._url }),
-		data : BOSSAPI.includeSecureParams({}),
+	retrieveBook({
 		success : function(data){
-			createBook(data);
-		},
-		error : function() {
-			alert('Failed to load your customer book.  Please retry later and if the problem persists contact support.');
+			var container = $('#my-book-page .ui-content');
+			createBook(container, data);
+
+			$('#my-book-page li.client a').click(function(){
+				showClient($(this).parents('li.client').data('client'));
+			});
 		}
-	};
-	$.ajax({
-	    url : settings.url,
-	    data : settings.data,
-	    dataType : 'jsonp',
-	    type : 'GET',
-	    success : function(data) {
-	        BOSSAPI.utils._handleServerResponse(settings, data);
-	    }
 	});
 }
-
-Handlebars.registerHelper('meeting_time', formatMeetingTime);
-Handlebars.registerHelper('meeting_date', formatMeetingDate);
-Handlebars.registerHelper('meeting_duration', formatMeetingDuration);
-Handlebars.registerHelper('formatJoinDate', function(member) {
-	return (new Date(member.join_date * 1000)).toString('MMMM yyyy');
-});
-
-var mySchedulePageTemplate = Handlebars.compile($("#my-schedule-page-template").html());
-var meetingPageTemplate = Handlebars.compile($("#meeting-page-template").html());
-var meetingListTemplate = Handlebars.compile($("#meeting").html());
-var clientListItemTemplate = Handlebars.compile($("#client-list-item-template").html());
-var clientDetailTemplate = Handlebars.compile($("#client-detail-template").html());
-var clientDetailHistoryItemTemplate = Handlebars.compile($("#client-detail-history-item-template").html());
 
 function createMySchedulePage(meetings) {
 	var container = $('#view-my-schedule .ui-content');
@@ -233,9 +316,9 @@ function createMySchedulePage(meetings) {
 
 		var meeting_date = BOSSAPI.utils.getDatestampFromDateTime(meeting.start_date);
 		if(last_date != meeting_date) {
-			list.append('<li data-role="list-divider">' + meeting.start_date.toString('ddd, MMMM d, yyyy') + '</li>');
-			last_date = meeting_date;
+			list.append(listDividerItemTemplate({ text : meeting.start_date.toString('ddd, MMMM d, yyyy') }));
 		}
+		last_date = meeting_date;	
 
 		var item = $(meetingListTemplate(meeting));
 		item.find('a').click(function(e){
@@ -299,22 +382,16 @@ function cancelMeeting(meeting) {
 	});
 }
 
-function createBook(clients) {
-	var container = $('#my-book-page');
-
-	var contents = container.find('.ui-content');
-	contents.empty();
+function createBook(container, clients) {
+	container.empty();
 
 	var list = $('<ul data-role="listview" data-filter="true" data-inset="true"></ul>');
 	for(var i = 0 ; i < clients.length ; i++) {
 		var listItem = $(clientListItemTemplate(clients[i].client));
 		listItem.data('client', clients[i].client);
-		listItem.find('a').click(function(){
-			showClient($(this).parents('li.client').data('client'));
-		});
 		list.append(listItem);
 	}
-	contents.append(list);
+	container.append(list);
 	container.trigger('create');
 }
 
@@ -337,7 +414,7 @@ function showClient(client) {
 
 			var params = {
 				ssoid : BOSSAPI._ssoid,
-				instructor_id : employee().id,
+				employee_number : employee().id,
 				publish : 'true,false', //Both published and non-published schedules.
 				member_id : client.member_id
 			};
@@ -354,19 +431,7 @@ function showClient(client) {
 		error : function() {
 			alert('Failed to lookup member information.');
 		}
-	});
-
-	
-}
-
-function formatMeetingTime(meeting) {
-	return meeting.start_date.toString('h:mm tt');
-}
-function formatMeetingDate(meeting) {
-	return meeting.start_date.toString('ddd, MMMM d, yyyy');
-}
-function formatMeetingDuration(meeting) {
-	return (meeting.duration / 60) + ' mins';
+	});	
 }
 </script>
 </html>

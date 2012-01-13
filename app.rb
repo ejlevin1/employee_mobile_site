@@ -9,6 +9,8 @@ class App < Sinatra::Application
 	configure :development do 
 		set :boss_data_server, 'http://127.0.0.1:9292/'
 		set :internal_boss_data_server, 'http://127.0.0.1:9292/'
+		# set :boss_data_server, 'http://frank-prodsup.lifetimefitness.com/api/'
+		# set :internal_boss_data_server, 'http://frank-prodsup.lifetimefitness.com/api/'
 
 		register Sinatra::Reloader
 		set :reload_templates, true
