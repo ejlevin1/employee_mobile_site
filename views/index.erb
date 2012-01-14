@@ -22,7 +22,6 @@
 	<div data-role="page" id="view-my-schedule" data-add-back-btn="true">
 		<div data-role="header">
 			<h1>My Schedule</h1>
-			<a class="new-appointment ui-btn-right" data-icon="plus">New Appointment</a>
 		</div>
 		<div data-role="content">	
 		</div>
@@ -60,7 +59,7 @@
 	<div id="new-appointment" data-role="page" data-title="New Appointment">
 		<div data-role="header">
 			<h1>New Appointment</h1>
-			<a href="#home" data-iconpos="notext" data-icon="home" title="Home" data-theme="a"></a>
+			<a onclick="window.history.back(); return false;" class="ui-btn-left" data-icon="arrow-l" title="Cancel">Cancel</a>
 		</div>
 		<div data-role="content">	
 		</div>
@@ -72,7 +71,7 @@
 
 $(document).bind("onAuthenticated", function(e, employee){
 	$('h4.username').text('Logged-In As: ' + employee.name.full );
-	$('#home .ui-header').append('<a class="ui-btn-right" href="<%= to('/logout') %>">Logout</a>')
+	$('#home .ui-header').append('<a class="ui-btn-right" data-icon="arrow-u" href="<%= to('/logout') %>">Logout</a>')
 
 	//Create the home page...
 	var container = $('#home .ui-content').empty();
