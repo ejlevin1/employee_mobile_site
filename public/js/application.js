@@ -62,6 +62,37 @@ function findNextMeeting(date, meetings) {
   return next;
 }
 
+function createMeeting(settings) {
+
+  settings['data'] = BOSSAPI.includeSecureParams(settings['data'])
+
+  if(settings['url'] == undefined) {
+    settings['url'] = BOSSAPI.utils.formatString( '{url}schedule/meeting/create.json' ,{ url : BOSSAPI._url }); 
+  }
+
+  if(settings['success'] == undefined) {
+    settings['success'] = function(data) {
+      alert('You need to properly handle your results.');
+    };
+  }
+
+  if(settings['error'] == undefined) {
+    settings['error'] = function() {
+      alert('Failed to create meeting.  Please retry later and if the problem persists contact support.');
+    };
+  }
+
+  $.ajax({
+      url : settings.url,
+      data : settings.data,
+      dataType : 'jsonp',
+      type : 'GET',
+      success : function(data) {
+          BOSSAPI.utils._handleServerResponse(settings, data);
+      }
+  });
+}
+
 function retrieveBook(settings) {
 
   settings['data'] = BOSSAPI.includeSecureParams(settings['data'])

@@ -88,19 +88,22 @@ $( document ).delegate("#view-my-schedule", "pagecreate", refreshMySchedule);
 $( document ).delegate("#my-book-page", "pagecreate", refreshMyBook);
 $( document ).delegate("#new-appointment", "pagecreate", refreshAppointmentWizard);
 
-function resetAppointmentWizard() {
-	$('#new-appointment .ui-content').data('appointment-process',{});
+function resetAppointmentWizard(process) {
 	$.mobile.changePage("#new-appointment");
-	refreshAppointmentWizard();
+	refreshAppointmentWizard(process);
 }
 
 function appointmentProcess() {
 	return $('#new-appointment .ui-content').data('appointment-process');
 }
 
-function refreshAppointmentWizard() {
+function refreshAppointmentWizard(process) {
 	var container = $('#new-appointment .ui-content');
-	var process = container.data('appointment-process');
+
+	if(process == undefined) {
+		process = container.data('appointment-process');
+	}
+
 	if(process == undefined) { 
 		process = {} 
 	};
@@ -240,14 +243,29 @@ function refreshAppointmentWizard() {
 			var link = $('<a data-role="button" data-theme="b">Confirm</a>');
 			link.click(function(e){
 				e.preventDefault();
-				alert('TODO');
+
+				createMeeting({
+					data : {
+						id : BOSSAPI.utils.formatString('avail#{resource_id}#{upccode}#{start_date}#{end_date}',{
+									resource_id : process.availability.resource_id,
+									upccode : '701592003683',
+									start_date : process.date_range[0].toString('yyyy-MM-ddTHH:mm:ss'),
+									end_date : process.date_range[1].toString('yyyy-MM-ddTHH:mm:ss')
+								}),
+						member_id : process.member.member_id
+					},
+					success : function(){
+						alert('Your appointment was created successfully.');
+						$.mobile.changePage("#home");
+					}
+				});
 			});
 			container.append(link);
 
 			link = $('<a data-role="button">No</a>');
 			link.click(function(e){
 				e.preventDefault();
-				$.mobile.changePage("#home");
+				window.history.back();
 			});
 			container.append(link);
 		}
@@ -265,6 +283,7 @@ function refreshTimeslotSelection(date, container) {
 	searchSchedule({
 		data : {
 			date_range : date.toString('MM/dd/yyyy') + '-' + date.toString('MM/dd/yyyy'),
+			publish : [true, false],
 			debug : true
 		},
 		success : function(data) {
@@ -286,43 +305,47 @@ function renderTimeslotSelectionSchedule(results, container) {
 
 	if(range != undefined) {
 		for(var date = range[0] ; date < range[1] ; date = new Date(date.getTime() + duration)) {
-
-			//Lets check whether this timeslot is taken or not....
-			var end = new Date(date.getTime() + (duration - 1));
-
-			var meeting = undefined;
-			if(results['meetings'] != undefined) {
-				for(var i = 0 ; i < results.meetings.length ; i++) {
-					var mtg = results.meetings[i];
-					if(mtg.start_date <= date && mtg.end_date > date) {
-						meeting = mtg;
+			if(date > new Date()) {
+				//Lets check whether this timeslot is taken or not....
+				var end = new Date(date.getTime() + (duration - 1));
+			
+				var meeting = undefined;
+				if(results['meetings'] != undefined) {
+					for(var i = 0 ; i < results.meetings.length ; i++) {
+						var mtg = results.meetings[i];
+						if(mtg.start_date <= date && mtg.end_date > date) {
+							meeting = mtg;
+						}
 					}
 				}
-			}
 
-			var item = undefined;
-			if(meeting == undefined) {
-				item = $(BOSSAPI.utils.formatString('<li class="timeslot"><a>{time}</a></li>' , { time : date.toString('h:mm tt') }));
-			}
-			else {
-				item = $(BOSSAPI.utils.formatString('<li class="timeslot unavailable" data-theme="b">{description}</li>', meeting));
-			}
-			item.data('date', date);
+				var item = undefined;
+				if(meeting == undefined) {
+					item = $(BOSSAPI.utils.formatString('<li class="timeslot"><a>{time}</a></li>' , { time : date.toString('h:mm tt') }));
+				}
+				else {
+					item = $(BOSSAPI.utils.formatString('<li class="timeslot unavailable" data-theme="b">{description}</li>', meeting));
+				}
+				item.data('date', date);
+				item.data('availability', results.availability[0]);
 
-			item.find('a').click(function(e){
-				var date = $(this).parents('li.timeslot').data('date');
-				var results = container.data('results');
+				item.find('a').click(function(e){
+					var date = $(this).parents('li.timeslot').data('date');
+					var availability = $(this).parents('li.timeslot').data('availability');
+					var results = container.data('results');
 
-				var next = findNextMeeting(date, results['meetings']);
-				var max = next != undefined ? next.start_date : results.availability[0].end_date;
+					var next = findNextMeeting(date, results['meetings']);
+					var max = next != undefined ? next.start_date : results.availability[0].end_date;
 
-				renderDurationSelection(date, max, duration, container, function(range) {
-					appointmentProcess().date_range = range;
-					refreshAppointmentWizard();
+					renderDurationSelection(date, max, duration, container, function(range) {
+						appointmentProcess().date_range = range;
+						appointmentProcess().availability = availability;
+						refreshAppointmentWizard();
+					});
 				});
-			});
 
-			list.append(item);
+				list.append(item);
+			}
 		}
 	}
 
@@ -521,6 +544,13 @@ function showClient(client) {
 		success : function(member) {
 			container.find('h1').empty().text(BOSSAPI.utils.formatString('{last}, {first}', member.name));
 			contents.empty().append(clientDetailTemplate(member));
+			
+			container.find('a.new-appointment').click(function(e){
+				resetAppointmentWizard({
+					member : member
+				});
+			});
+
 			container.trigger('create');
 
 			var params = {
