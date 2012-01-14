@@ -77,7 +77,7 @@ $(document).bind("onAuthenticated", function(e, employee){
 	//Create the home page...
 	var container = $('#home .ui-content').empty();
 	var list = $('<ul data-role="listview"></ul>');
-	list.append('<li><a href="" onclick="resetAppointmentWizard(); return false;">New Appointment</a></li>');
+	list.append('<li><a href="" onclick="resetAppointmentWizard({}); return false;">New Appointment</a></li>');
 	list.append('<li><a href="#view-my-schedule">Upcoming Schedule</a></li>');
 	list.append('<li><a href="#my-book-page">My Book</a></li>');
 	container.append(list);
