@@ -332,7 +332,10 @@ function renderMemberSearch(container, onSelect) {
 
 					var link = $('<a></a>');
 					link.data('member', member);
-					link.text(member.name.first + ' ' + member.name.last + ' (' + member.member_id + ')');
+					link.append('<h3>' + member.name.first + ' ' + member.name.last + '</h3>');
+					link.append('<p><strong>Member Since: ' + new Date(member.join_date).toString('MMMM yyyy') + '</strong></p>');
+					link.append('<p>' + member.address.street1 + ', ' + member.address.city + ', ' + member.address.state + '</p>');
+					// link.text( + ' (' + member.member_id + ')');
 					link.click(function(e){
 						e.preventDefault();
 						if(onSelect != undefined) { 
