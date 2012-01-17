@@ -5,3 +5,21 @@ li.meeting.cancelled a.ui-link-inherit {
 	padding-top: 25px;
 	padding-bottom: 25px;
 }
+/*#new-appointment .ui-content ul.products li.product .ui-li-desc {
+	white-space: normal;
+}*/
+
+.search-bar .ui-block-a{
+    width: 75%;
+}
+.search-bar .ui-block-b{
+    width: 19.75%;
+}
+.search-bar.ui-bar{
+    padding: 0.4em 5px;
+    margin-bottom: 25px;
+}
+.ui-bar.standalone{
+    padding: 0.4em 5px;
+    margin-bottom: 25px;
+}

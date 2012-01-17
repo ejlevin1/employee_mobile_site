@@ -22,6 +22,26 @@ if (!Array.prototype.indexOf)
   };
 }
 
+(function($) {
+  $.fn.loading = function(params) {
+    params = $.extend( { message: 'Loading' }, params);
+    this.each(function() {
+      var $t = $(this);
+      
+      if(params.message != undefined) {
+        $t.append('<div class="ui-loader loading"><span class="ui-icon ui-icon-loading spin"></span><h1>' + params.message + '</h1></div>');
+        $t.find('.loading').css('display','block').css('margin-top','35px');
+      }
+      else {
+        $t.find('.loading').remove();
+      }
+      $t.trigger('create');
+    });
+    return this;
+  };
+})(jQuery);
+
+
 function keepAlive() {
   setInterval(function(){
     BOSSAPI.auth.ping({
@@ -30,10 +50,6 @@ function keepAlive() {
       }
     });
   }, 60 * 1000);
-}
-
-function employee(){
-  return $(document).data('employee');
 }
 
 function formatMeetingTime(meeting) {
@@ -91,6 +107,51 @@ function createMeeting(settings) {
           BOSSAPI.utils._handleServerResponse(settings, data);
       }
   });
+}
+
+function retrieveProducts(settings) {
+
+  settings['data'] = BOSSAPI.includeSecureParams(settings['data'])
+
+  if(settings['url'] == undefined) {
+    settings['url'] = BOSSAPI.utils.formatString( '{url}employee/products.json' ,{ url : BOSSAPI._url }); 
+  }
+
+  if(settings['success'] == undefined) {
+    settings['success'] = function(data) {
+      alert('You need to properly handle your product results.');
+    };
+  }
+
+  if(settings['error'] == undefined) {
+    settings['error'] = function() {
+      alert('Failed to load your employee products.  Please retry later and if the problem persists contact support.');
+    };
+  }
+
+  $.ajax({
+      url : settings.url,
+      data : settings.data,
+      dataType : 'jsonp',
+      type : 'GET',
+      success : function(data) {
+          BOSSAPI.utils._handleServerResponse(settings, data);
+      }
+  });
+}
+
+function createDateSelection(onDateSelect) {
+  var bar = $('<div class="ui-bar standalone"></div>');
+  bar.append('<input class="mobiscroll" ></input>');
+  bar.find('.mobiscroll').val(Date.today().toString('MM/dd/yyyy')).scroller({
+    onSelect : function(e) {
+      var d = bar.find('.mobiscroll').scroller('getDate');
+      if(onDateSelect != undefined) {
+        onDateSelect(d);
+      }
+    }
+  });
+  return bar;
 }
 
 function retrieveBook(settings) {

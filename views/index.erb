@@ -87,13 +87,17 @@ $( document ).delegate("#view-my-schedule", "pagecreate", refreshMySchedule);
 $( document ).delegate("#my-book-page", "pagecreate", refreshMyBook);
 $( document ).delegate("#new-appointment", "pagecreate", refreshAppointmentWizard);
 
+function employee(){
+  var employee = $(document).data('employee');
+  if(employee == undefined) {
+  	window.location.href = '<%= to('/') %>';
+  }
+  return employee;
+}
+
 function resetAppointmentWizard(process) {
 	$.mobile.changePage("#new-appointment");
 	refreshAppointmentWizard(process);
-}
-
-function appointmentProcess() {
-	return $('#new-appointment .ui-content').data('appointment-process');
 }
 
 function refreshAppointmentWizard(process) {
@@ -128,83 +132,54 @@ function refreshAppointmentWizard(process) {
 			container.append(btn);
 		}
 		else {
+			var onSelected = function(member) {
+				process['member'] = member;
+				refreshAppointmentWizard();
+			};
+
 			if(process.memberSource == 'mms') {
-
-				container.append('<h3>Find Member</h3>');
-
-				var fieldContainer = $('<div data-role="fieldcontain"></div>');
-				container.append(fieldContainer);
-
-				fieldContainer.append('<label for="name">Name</label>');
-				fieldContainer.append('<input type="text" name="name" value="LeVin, E" placeholder="Last, First"></input>');
-
-				var btn = $('<a data-role="button">Search</a>');
-				btn.click(function(e){
-					e.preventDefault();
-
-					if(btn.hasClass('disabled')) {
-						return;
-					}
-
-					btn.addClass('disabled').find('.ui-btn-text').text('... Searching ...');
-
-					var name = container.find('input[name=name]').val();
-					name = name.split(',');
-					if(name.length != 2) {
-						alert('Please specify the name as: LAST, FIRST');
-						return;
-					}
-
-					container.find('ul.results').remove();
-
-					searchMembers({
-						data : {
-							first_name : name[1],
-							last_name : name[0]
-						},
-						success : function(data) {
-							
-							btn.removeClass('disabled').find('.ui-btn-text').text('Search');
-
-							var list = $('<ul class="results" data-role="listview" data-inset="true"></ul>');
-							for(var i = 0 ; i < data.member.length ; i++) {
-								var member = data.member[i];
-								member['name'] = BOSSAPI.utils.formatString('{first} {last}' , member.name);
-
-								var item = $(clientListItemTemplate(member));
-								item.data('client', member);
-								list.append(item);
-							}
-							container.append(list);
-							container.trigger('create');
-
-							attachWizardClientLinks();
-						}
-					});
-				});
-				fieldContainer.append(btn);
-
-				container.append('<div data-role="fieldcontain"><div class="results"></div></div>');
+				renderMemberSearch(container, onSelected);
 			}
 			else {
-				container.append('<div class="loading">Looking up your book...</div>').trigger('create');
+				container.empty().loading({ message : 'Looking up your book'});
 				retrieveBook({
 					success : function(data){
-						createBook(container, data);
-						attachWizardClientLinks();
+						createBook(container, data, onSelected);
 					}
 				});
 			}
 		}
 	}
 	else {
-		if(process.member['membership_id'] == undefined) {
-			BOSSAPI.auth.info({
-				data : {
-					member_id : process.member.member_id,
+		if(process['product'] == undefined) {
+			retrieveProducts({
+				success : function(products) {
+					if(products != undefined && products.length > 0) {
+
+						var onSelected = function(product){
+							process['product'] = product;
+							refreshAppointmentWizard();
+						};
+
+						renderProductSelection(products[0].product.products, container, onSelected);
+					}
+					else {
+						window.history.back();
+						alert('No default product assigned to employee.  Please contact BOSS support.');
+					}
 				},
+				error : function() {
+					window.history.back();
+					alert('Failed to lookup employee products.  Please retry and if the problem persists, contact support.');
+				}
+			})
+		}
+		else if(process.member['membership_id'] == undefined) {
+			container.loading({ message : 'Looking up member information' });
+			BOSSAPI.auth.info({
+				data : { member_id : process.member.member_id, },
 				success : function(member) {
-					process.member = member;
+					process['member'] = member;
 					refreshAppointmentWizard();
 				},
 				error : function() {
@@ -212,27 +187,30 @@ function refreshAppointmentWizard(process) {
 				}
 			});	
 		}
-		else if (process['date_range'] == undefined) {
+		else if (process['date_range'] == undefined || process['resource'] == undefined) {
 			
-			container.append(renderDateField('date1','Date'));
-
 			var timeslotContainer = $('<div class="timeslot-selection-container"></div>');
 			container.append(timeslotContainer);
 
-			container.find('.mobiscroll').val(Date.today().toString('MM/dd/yyyy')).scroller({
-				onSelect : function(e) {
-					var d = container.find('.mobiscroll').scroller('getDate');
-					refreshTimeslotSelection(d, timeslotContainer);
-				}
-			});
+			var onSlotSelection = function(selection) {
+				process['date_range'] = selection.timeslot;
+				process['resource'] = selection.resource;
+				refreshAppointmentWizard();
+			}
 
-			refreshTimeslotSelection(Date.today(), timeslotContainer);
+			var dateSelection = createDateSelection(function(date){
+				refreshTimeslotSelection(date, timeslotContainer, onSlotSelection);
+			});
+			container.prepend(dateSelection);
+
+			refreshTimeslotSelection(Date.today(), timeslotContainer, onSlotSelection);
 		}
 		else {
 			//Confirm the appointment here....
 
-			var msg = BOSSAPI.utils.formatString('Are you sure you want to book an appointment with {name} at {start_date} - {end_date}?',
+			var msg = BOSSAPI.utils.formatString('Are you sure you want to book a {product} appointment with {name} at {start_date} - {end_date}?',
 						{ 
+							product: process.product.name,
 							name: process.member.name.first + ' ' + process.member.name.last,
 							start_date : process.date_range[0].toString('ddd, MMMM d h:mm'), 
 							end_date : process.date_range[1].toString('h:mm tt') 
@@ -246,8 +224,8 @@ function refreshAppointmentWizard(process) {
 				createMeeting({
 					data : {
 						id : BOSSAPI.utils.formatString('avail#{resource_id}#{upccode}#{start_date}#{end_date}',{
-									resource_id : process.availability.resource_id,
-									upccode : '701592003683',
+									resource_id : process.resource.id,
+									upccode : process.product.upccode,
 									start_date : process.date_range[0].toString('yyyy-MM-ddTHH:mm:ss'),
 									end_date : process.date_range[1].toString('yyyy-MM-ddTHH:mm:ss')
 								}),
@@ -274,10 +252,10 @@ function refreshAppointmentWizard(process) {
 	container.trigger('create');
 }
 
-function refreshTimeslotSelection(date, container) {
+function refreshTimeslotSelection(date, container, onSelect) {
 	container.empty();
 
-	container.append('<div class="loading">Searching your schedule</div>');
+	container.loading({ message: 'Searching your schedule' });
 
 	searchSchedule({
 		data : {
@@ -286,18 +264,102 @@ function refreshTimeslotSelection(date, container) {
 			debug : true
 		},
 		success : function(data) {
-			renderTimeslotSelectionSchedule(data, container);
+			renderTimeslotSelectionSchedule(data, container, onSelect);
 		}
 	});
 }
 
-function renderTimeslotSelectionSchedule(results, container) {
+function renderProductSelection(products, container, onSelect) {
+	container.empty();
+
+	var list = $('<ul class="products" data-role="listview"></ul>');
+	for(var i = 0 ; i < products.length ; i++) {
+		var product = products[i].product;
+
+		var link = $('<a></a>');
+		link.append('<h3>' + product.name + '</h3>');
+		link.append('<p>' + product.description + '</p>');
+		link.data('product',product);
+		link.click(function(e){
+			e.preventDefault();
+
+			var p = $(this).data('product');
+			if(onSelect != undefined){
+				onSelect(p);
+			}
+		});
+		list.append(link);
+	}
+	list.find('a').wrap('<li class="product"></li>');
+	container.append(list).trigger('create');
+}
+
+function renderMemberSearch(container, onSelect) {
+
+	var bar = $('<div class="search-bar ui-bar ui-bar-c ui-grid-b"></div>');
+	bar.append('<div class="ui-block-a"><input type="text" name="name" value="" placeholder="Last, First"></input></div>');
+	bar.append('<div class="ui-block-b"><a style="margin-left: 10px" data-role="button">Search</a></div>');
+	container.append(bar);
+	container.append('<div class="results"></div>');
+
+	var button = container.find('a');
+	button.click(function(e){
+		e.preventDefault();
+
+		if(button.hasClass('disabled')) { return; }
+
+		var name = container.find('input[name=name]').val();
+		name = name.split(',');
+		if(name.length != 2) {
+			alert('Please specify the name as: Last, First');
+			return;
+		}
+
+		var resultsContainer = container.find('.results');
+		resultsContainer.empty().loading({ message : 'Searching MMS' });
+
+		searchMembers({
+			data : {
+				first_name : name[1],
+				last_name : name[0]
+			},
+			success : function(data) {
+				button.removeClass('disabled');
+
+				var list = $('<ul class="results" data-role="listview"></ul>');
+				for(var i = 0 ; i < data.member.length ; i++) {
+					var member = data.member[i];
+
+					var link = $('<a></a>');
+					link.data('member', member);
+					link.text(member.name.first + ' ' + member.name.last + ' (' + member.member_id + ')');
+					link.click(function(e){
+						e.preventDefault();
+						if(onSelect != undefined) { 
+							onSelect($(this).data('member')); 
+						}
+					});
+
+					list.append(link);
+				}
+
+				list.find('a').wrap('<li></li>');
+
+				resultsContainer.empty().append(list);
+				container.trigger('create');
+			}
+		});
+	});
+
+}
+
+function renderTimeslotSelectionSchedule(results, container, onSelect) {
 	container.empty().data('results', results);
 
 	var list = $('<ul class="timeslots padded" data-role="listview"></ul>');
 
 	var range = undefined;
-	var duration = 30 * 60 * 1000;
+	var duration = results.resource.interval * 1000;
 	if(results['availability'] != undefined && results['availability'].length > 0) {
 		range = [results.availability[0].start_date, results.availability[0].end_date];
 	}
@@ -337,9 +399,9 @@ function renderTimeslotSelectionSchedule(results, container) {
 					var max = next != undefined ? next.start_date : results.availability[0].end_date;
 
 					renderDurationSelection(date, max, duration, container, function(range) {
-						appointmentProcess().date_range = range;
-						appointmentProcess().availability = availability;
-						refreshAppointmentWizard();
+						if(onSelect != undefined) {
+							onSelect({ resource : results.resource, timeslot : range });
+						}
 					});
 				});
 
@@ -391,53 +453,56 @@ function renderDurationSelection(start, max, duration, container, onSelect) {
 	container.append(durationContainer).trigger('create');
 }
 
-
-
-function attachWizardClientLinks() {
-	$('#new-appointment .ui-content li.client a').click(function(){
-		var client = $(this).parents('li.client').data('client');
-		var container = $('#new-appointment .ui-content');
-
-		var process = container.data('appointment-process');
-		process.member = client;
-
-		refreshAppointmentWizard();
+function refreshMyBook() {
+	retrieveBook({
+		success : function(data){
+			var container = $('#my-book-page .ui-content');
+			createBook(container, data, showClient);
+		}
 	});
 }
+
 
 function refreshMySchedule() {
 	var container = $('#view-my-schedule .ui-content');
 	container.empty();
-	container.text('Loading...');
+
+	var resultsContainer = $('<div class="results"></div>');
+	container.append(resultsContainer);
+
+	var dateSelector = createDateSelection(function(date){
+		loadAndDisplaySchedule(resultsContainer, date);
+	});
+	container.prepend(dateSelector);
+
+	loadAndDisplaySchedule(resultsContainer, Date.today());
+}
+
+function loadAndDisplaySchedule(container, date) {
+	container.empty().loading();
+
+	if(date.getDay() != 0) {
+		date = date.moveToDayOfWeek(0, -1);
+	}
+
+	var range = [ date, date.clone().add(1).weeks() ];
 
 	var params = {
 		ssoid : BOSSAPI._ssoid,
 		employee_number : employee().id,
 		publish : 'true,false', //Both published and non-published schedules.
-		includes : 'rosters'
+		includes : 'rosters',
+		date_range : range[0].toString('MM/dd/yyyy') + '-' + range[1].toString('MM/dd/yyyy')
 	};
 
 	BOSSAPI.scheduling.meetings.search(params, function(meetings){
-		createMySchedulePage(meetings);
+		renderSchedule(container, meetings);
 	});
 }
 
-function refreshMyBook() {
-	retrieveBook({
-		success : function(data){
-			var container = $('#my-book-page .ui-content');
-			createBook(container, data);
 
-			$('#my-book-page li.client a').click(function(){
-				showClient($(this).parents('li.client').data('client'));
-			});
-		}
-	});
-}
 
-function createMySchedulePage(meetings) {
-	var container = $('#view-my-schedule .ui-content');
-
+function renderSchedule(container, meetings) {
 	container.empty();
 	container.append(mySchedulePageTemplate({}));
 
@@ -515,13 +580,23 @@ function cancelMeeting(meeting) {
 	});
 }
 
-function createBook(container, clients) {
+function createBook(container, clients, onSelect) {
 	container.empty();
 
 	var list = $('<ul data-role="listview" data-filter="true" data-inset="true"></ul>');
 	for(var i = 0 ; i < clients.length ; i++) {
 		var listItem = $(clientListItemTemplate(clients[i].client));
 		listItem.data('client', clients[i].client);
+
+		listItem.find('a').click(function(e){
+			e.preventDefault();
+
+			var client = $(this).parents('li.client').data('client');
+			if(onSelect != undefined){
+				onSelect(client);
+			}
+		});
+
 		list.append(listItem);
 	}
 	container.append(list);
