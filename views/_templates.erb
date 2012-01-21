@@ -10,42 +10,27 @@
 	</div>
 </script>
 <script id="meeting-page-template" type="text/x-handlebars-template">
-	<h3>{{ description }}</h3>
-	<div data-role="fieldcontain">
-		<label for="date_time">Time</label>
-		<input type="text" name="date_time" readonly="readonly" value="{{meeting_date this}} at {{meeting_time this}}"  />	
-	</div>
-	<div data-role="fieldcontain">
-		<label for="duration">Duration</label>
-		<input type="text" name="duration" readonly="readonly" value="{{meeting_duration this}}"  />	
-	</div>
-	<fieldset>
-		<legend>Roster</legend>
-		<ul class="rosters">
-			{{#rosters}}<li class="roster">{{member.name}}&nbsp;({{member.id}})</li>{{/rosters}}
-			{{^rosters}}<li class="empty">No one is currently rostered.</li>{{/rosters}}
-		</ul>
-	</fieldset>
-	<div class="actions" data-role="controlgroup"></div>
-	<div data-role="collapsible" data-state="collapsed">
-		<h3>Debug</h3>
-		<div data-role="fieldcontain">
-			<label for="reservation_id">Reservation ID</label>
-			<input type="text" name="reservation_id" readonly="readonly" value="{{reservation_id}}"  />	
-		</div>
-		<div data-role="fieldcontain">
-			<label for="status">Status</label>
-			<input type="text" name="status" readonly="readonly" value="{{status}}"  />	
-		</div>
-		<div data-role="fieldcontain">
-			<label for="reservation_type">Type</label>
-			<input type="text" name="reservation_type" readonly="readonly" value="{{reservation_type}}"  />	
-		</div>
-		<div data-role="fieldcontain">
-			<label for="id">Key</label>
-			<input type="text" name="id" readonly="readonly" value="{{id}}"  />	
-		</div>
-    </div>
+	<ul data-role="listview">
+		<li data-role="fieldcontain">
+			<h2>{{ description }}</h2>
+		</li>
+		<li data-role="fieldcontain">
+			<label for="date_time">Time:</label>
+			<span>{{meeting_date this}} at {{meeting_time this}}</span>
+		</li>
+		<li data-role="fieldcontain">
+			<label for="duration">Duration:</label>
+			<span>{{meeting_duration this}}</span>
+		</li>
+		<li data-role="fieldcontain">
+			<label for="rosters">Rosters</label>
+			<div class="rosters-container"></div>
+		</li>
+		<li data-role="fieldcontain">
+			<label for="actions">Actions</label>
+			<div data-role="controlgroup" class="actions"></div>
+		</li>
+	</ul>
 </script>
 <script id="list-divider-item-template" type="text/x-handlebars-template">
 	<li data-role="list-divider">{{text}}</li>
@@ -66,37 +51,34 @@
 	<input type="checkbox" name="{{name}}" id="{{name}}" />
 	<label for="{{name}}">{{text}}</label>
 </script>
-<script id="client-detail-history-item-template" type="text/x-handlebars-template">
-<div>{{meeting_date this}} {{meeting_time this}} -- {{description}} ({{meeting_duration this}})</div>
-</script>
 <script id="client-detail-template" type="text/x-handlebars-template">
 	<ul data-role="listview">
-		<li>
-			<div data-role="fieldcontain">
-				<label for="join_date">Member Since:</label>
-				<span>{{formatJoinDate this}}</span>
-			</div>
-			<div data-role="fieldcontain">
-				<label for="email">Email:</label>
-				<span>{{email}}</span>
-			</div>
-			<div data-role="fieldcontain">
+		<li data-role="fieldcontain">
+			<label for="join_date">Member Since:</label>
+			<span>{{formatJoinDate this}}</span>
+		</li>
+		<li data-role="fieldcontain">
+			<label for="email">Email:</label>
+			<span>{{email}}</span>
+		</li>
+		<li data-role="fieldcontain">
 				<label for="phone">Phone:</label>
 				<span>{{phone}}</span>	
 			</div>
 		</li>
-		<li>
+		<li data-role="fieldcontain">
 			<label>Actions</label>
-			<div>
+			<div data-role="controlgroup" class="actions">
 				<a data-role="button" data-theme="b" class="new-appointment" href="#">Schedule Appointment</a>
-				<a data-role="button" href="mailto:{{email}}">Send Email</a>
-				<a data-role="button" href="tel:{{phone}}">Call</a>
 			</div>
 		</li>
-		<li>
+		<li data-role="fieldcontain">
 			<label>Interactions</label>
-			<br/><br/>
 			<div class="rosters"></div>
+		</li>
+		<li data-role="fieldcontain">
+			<label>Packages</label>
+			<div class="packages"></div>
 		</li>
 	</ul>
 </script>

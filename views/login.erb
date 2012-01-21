@@ -6,15 +6,25 @@
 		<script type="text/javascript">
 			$(function() {
 	            $("#login").click(function() {
-	            	BOSSAPI.auth.employee.login({
-	            		data : { pin : $('#login_form input[name=pin]').val() },
-	            		success : function(data) {
-	            			window.location.href = "<%= to('/auth_callback') %>?ssoid=" + data.ssoid;
-	            		},
-	            		error : function(error) {
-	            			alert(error.message);
-	            		}
-	            	});
+
+	            	var pin = $('#login_form input[name=pin]').val();
+	            	if(pin == undefined || pin == '') {
+	            		alert('Please enter a pin to login.');
+	            	}
+	            	else {
+	            		$('.ui-content').empty().loading();
+
+	            		BOSSAPI.auth.employee.login({
+		            		data : { pin : pin },
+		            		success : function(data) {
+		            			window.location.href = "<%= to('/auth_callback') %>?ssoid=" + data.ssoid;
+		            		},
+		            		error : function(error) {
+		            			alert(error.message);
+		            			window.location.href = "<%= to('/login') %>";
+		            		}
+		            	});
+	            	}
 	            });
 	        });
 		</script>
@@ -29,7 +39,7 @@
 		<form id="login_form">
 			<div data-role="fieldcontain">
 				<label for="pin">PIN</label>
-				<input type="text" name="pin" id="pin" value="" placeholder="f536"/>
+				<input type="text" name="pin" id="pin" value="f536" />
 			</div>
 			<hr/>
 			<input id="login" type="button" value="Login" />

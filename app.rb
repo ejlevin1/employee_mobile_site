@@ -38,6 +38,22 @@ class App < Sinatra::Application
 		render :erb, :index
 	end
 
+	get '/member' do
+		require_authenticated!
+		render :erb, :member
+	end
+
+	get '/member/photo' do
+		require_authenticated!
+		response.headers['content-type'] = "image/jpeg"
+		response.headers['content-disposition'] = 'inline'
+		stream do |out|
+			File.open("#{settings.public_folder}/images/member_photo.jpeg", 'r') do |f|
+				out << f.read
+			end
+		end
+	end
+
 	get '/login' do
 		redirect to('/') if !session['ssoid'].nil? && session['ssoid'] != ''
 		render :erb, :login

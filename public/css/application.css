@@ -23,3 +23,7 @@ li.meeting.cancelled a.ui-link-inherit {
     padding: 0.4em 5px;
     margin-bottom: 25px;
 }
+#meeting-details .ui-listview li label {
+	width: 70px;
+	display: inline-block;
+}

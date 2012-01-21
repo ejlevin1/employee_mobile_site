@@ -32,10 +32,9 @@
 
 	<div data-role="page" id="meeting-details" data-add-back-btn="true">
 		<div data-role="header">
-			<h1></h1>
+			<h1>Appointment</h1>
 		</div>
 		<div data-role="content">	
-			Meeting details.
 		</div>
 	</div>
 
@@ -65,13 +64,22 @@
 		</div>
 	</div>
 
+	<div id="member-detail" data-role="page" data-title="Member">
+		<div data-role="header">
+			<h1>Member</h1>
+		</div>
+		<div data-role="content">	
+
+		</div>
+	</div>
+
 </body>
 <%= partial(:_templates) %>
 <script type="text/javascript">
 
 $(document).bind("onAuthenticated", function(e, employee){
 	$('h4.username').text('Logged-In As: ' + employee.name.full );
-	$('#home .ui-header').append('<a class="ui-btn-right" data-icon="arrow-u" href="<%= to('/logout') %>">Logout</a>')
+	$('#home .ui-header').append('<a class="ui-btn-right" data-ajax="false" data-icon="arrow-u" href="<%= to('/logout') %>">Logout</a>')
 
 	//Create the home page...
 	var container = $('#home .ui-content').empty();
@@ -81,6 +89,11 @@ $(document).bind("onAuthenticated", function(e, employee){
 	list.append('<li><a href="#my-book-page">My Book</a></li>');
 	container.append(list);
 	$('#home').trigger( "create" );
+});
+
+$(document).bind("onSessionError", function(e){
+	BOSSAPI.log.warn('A session error has occurred... Redirecting to logout.');
+	window.location.href = '<%= to('/logout') %>';
 });
 
 $( document ).delegate("#view-my-schedule", "pagecreate", refreshMySchedule);
@@ -151,7 +164,23 @@ function refreshAppointmentWizard(process) {
 		}
 	}
 	else {
-		if(process['product'] == undefined) {
+		var meeting = process['meeting'];
+
+		if(process.member['membership_id'] == undefined) {
+			container.loading({ message : 'Looking up member information' });
+			BOSSAPI.auth.info({
+				data : { member_id : process.member.member_id, },
+				success : function(member) {
+					process['member'] = member;
+					refreshAppointmentWizard();
+				},
+				error : function() {
+					alert('Failed to lookup member information.');
+				}
+			});	
+		}
+		else if(meeting == undefined && process['product'] == undefined) {
+			container.empty().loading({ message : 'Loading employee products' }).trigger('create');
 			retrieveProducts({
 				success : function(products) {
 					if(products != undefined && products.length > 0) {
@@ -174,21 +203,8 @@ function refreshAppointmentWizard(process) {
 				}
 			})
 		}
-		else if(process.member['membership_id'] == undefined) {
-			container.loading({ message : 'Looking up member information' });
-			BOSSAPI.auth.info({
-				data : { member_id : process.member.member_id, },
-				success : function(member) {
-					process['member'] = member;
-					refreshAppointmentWizard();
-				},
-				error : function() {
-					alert('Failed to lookup member information.');
-				}
-			});	
-		}
-		else if (process['date_range'] == undefined || process['resource'] == undefined) {
-			
+		else if (meeting == undefined && (process['date_range'] == undefined || process['resource'] == undefined)) {
+
 			var timeslotContainer = $('<div class="timeslot-selection-container"></div>');
 			container.append(timeslotContainer);
 
@@ -208,32 +224,52 @@ function refreshAppointmentWizard(process) {
 		else {
 			//Confirm the appointment here....
 
-			var msg = BOSSAPI.utils.formatString('Are you sure you want to book a {product} appointment with {name} at {start_date} - {end_date}?',
+			var msg = undefined;
+			if(meeting == undefined) {
+				msg = BOSSAPI.utils.formatString('Are you sure you want to book a {product} appointment with {name} at {start_date} - {end_date}?',
 						{ 
 							product: process.product.name,
 							name: process.member.name.first + ' ' + process.member.name.last,
 							start_date : process.date_range[0].toString('ddd, MMMM d h:mm'), 
 							end_date : process.date_range[1].toString('h:mm tt') 
 						});
+			}
+			else {
+				msg = BOSSAPI.utils.formatString('Are you sure you want to book {name} for the {product} at {start_date} - {end_date}?',
+						{ 
+							product: process.meeting.description,
+							name: process.member.name.first + ' ' + process.member.name.last,
+							start_date : process.meeting.start_date.toString('ddd, MMMM d h:mm'), 
+							end_date : process.meeting.end_date.toString('h:mm tt') 
+						});
+			}
 			container.append('<p>' + msg + '</p>');
 
 			var link = $('<a data-role="button" data-theme="b">Confirm</a>');
 			link.click(function(e){
 				e.preventDefault();
 
+				var registration_key = undefined;
+				if(meeting == undefined) {
+					registration_key = BOSSAPI.utils.formatString('avail#{resource_id}#{upccode}#{start_date}#{end_date}',{
+											resource_id : process.resource.id,
+											upccode : process.product.upccode,
+											start_date : process.date_range[0].toString('yyyy-MM-ddTHH:mm:ss'),
+											end_date : process.date_range[1].toString('yyyy-MM-ddTHH:mm:ss')
+										});
+				}
+				else {
+					registration_key = meeting.id;
+				}
+
 				createMeeting({
 					data : {
-						id : BOSSAPI.utils.formatString('avail#{resource_id}#{upccode}#{start_date}#{end_date}',{
-									resource_id : process.resource.id,
-									upccode : process.product.upccode,
-									start_date : process.date_range[0].toString('yyyy-MM-ddTHH:mm:ss'),
-									end_date : process.date_range[1].toString('yyyy-MM-ddTHH:mm:ss')
-								}),
+						id : registration_key,
 						member_id : process.member.member_id
 					},
-					success : function(){
-						alert('Your appointment was created successfully.');
-						$.mobile.changePage("#home");
+					success : function() {
+						window.history.back();
+						alert('Your appointment was booked successfully.');
 					}
 				});
 			});
@@ -326,27 +362,26 @@ function renderMemberSearch(container, onSelect) {
 			success : function(data) {
 				button.removeClass('disabled');
 
-				var list = $('<ul class="results" data-role="listview"></ul>');
+				var list = $('<ul class="results" data-role="listview" data-split-icon="grid" data-split-theme="d"></ul>');
 				for(var i = 0 ; i < data.member.length ; i++) {
 					var member = data.member[i];
+					var item = $('<li></li>');
 
 					var link = $('<a></a>');
-					link.data('member', member);
 					link.append('<h3>' + member.name.first + ' ' + member.name.last + '</h3>');
 					link.append('<p><strong>Member Since: ' + new Date(member.join_date).toString('MMMM yyyy') + '</strong></p>');
 					link.append('<p>' + member.address.street1 + ', ' + member.address.city + ', ' + member.address.state + '</p>');
-					// link.text( + ' (' + member.member_id + ')');
+					link.data('member', member);
 					link.click(function(e){
 						e.preventDefault();
 						if(onSelect != undefined) { 
 							onSelect($(this).data('member')); 
 						}
 					});
-
-					list.append(link);
+					item.append(link);
+					item.append('<a data-rel="dialog" data-transition="slidedown" href="' + memberPhotoUrl(member) + '"></a>');
+					list.append(item);
 				}
-
-				list.find('a').wrap('<li></li>');
 
 				resultsContainer.empty().append(list);
 				container.trigger('create');
@@ -354,6 +389,10 @@ function renderMemberSearch(container, onSelect) {
 		});
 	});
 
+}
+
+function memberPhotoUrl(member) {
+	return "<%= url('/member') %>";	
 }
 
 function renderTimeslotSelectionSchedule(results, container, onSelect) {
@@ -465,7 +504,6 @@ function refreshMyBook() {
 	});
 }
 
-
 function refreshMySchedule() {
 	var container = $('#view-my-schedule .ui-content');
 	container.empty();
@@ -490,20 +528,19 @@ function loadAndDisplaySchedule(container, date) {
 
 	var range = [ date, date.clone().add(1).weeks() ];
 
-	var params = {
-		ssoid : BOSSAPI._ssoid,
-		employee_number : employee().id,
-		publish : 'true,false', //Both published and non-published schedules.
-		includes : 'rosters',
-		date_range : range[0].toString('MM/dd/yyyy') + '-' + range[1].toString('MM/dd/yyyy')
-	};
-
-	BOSSAPI.scheduling.meetings.search(params, function(meetings){
-		renderSchedule(container, meetings);
+	BOSSAPI.scheduling.meetings.search({
+		data : {
+			ssoid : BOSSAPI._ssoid,
+			employee_number : employee().id,
+			publish : 'true,false', //Both published and non-published schedules.
+			includes : 'rosters',
+			date_range : range[0].toString('MM/dd/yyyy') + '-' + range[1].toString('MM/dd/yyyy')
+		},
+		success : function(meetings) {
+			renderSchedule(container, meetings);
+		}
 	});
 }
-
-
 
 function renderSchedule(container, meetings) {
 	container.empty();
@@ -536,51 +573,75 @@ function renderSchedule(container, meetings) {
 function createMeetingPage(meeting) {
 	$.mobile.changePage("#meeting-details");
 
-	$('#meeting-details .ui-header h1').text( meeting.description + ' at ' + formatMeetingTime(meeting) );
-
 	var container = $('#meeting-details .ui-content');
 	container.empty().append(meetingPageTemplate(meeting));
 
+	var link = $('<a></a>');
+	link.text(container.find('h2').text());
+	link.click(function(){
+		BOSSAPI.log.dir(meeting);
+	});
+	container.find('h2').empty().append(link);
+
 	var actions = container.find('.actions');
 
-	if(meeting.status != 'cancelled') {
-		actions.append('<a class="cancel" data-role="button">Cancel Appointment</a>');
-		$(document).delegate('#meeting-details .actions a.cancel', 'click', function() {
-		  $(this).simpledialog({
-		    'mode' : 'bool',
-		    'prompt' : 'Are you sure you wish to cancel?',
-		    'useModal': true,
-		    'buttons' : {
-				'Yes': {
-					click: function () {
-						cancelMeeting($('#meeting-details').data('meeting'));
-					}
-				},
-				'Cancel': {
-					click: function () {},
-					icon: "delete",
-					theme: "c"
-				}
-		    }
-		  })
-		});
+	if(meeting.hasRosters()) {
+		var list = $('<ul data-role="listview" data-inset="true"></ul>');
+		for(var i = 0 ; i < meeting.rosters.length ; i++) {
+			var link = $('<a data-rel="dialog" href="#member-detail"></a>');
+			link.data('roster', meeting.rosters[i]);
+			link.click(function(e){
+				var img = $('<img style="height: 390px; width: 336px;" src="<%= to('/member/photo') %>"></img>');
+				$('#member-detail div[data-role=content]').empty().append(img).trigger('create');
+			});
+			link.text(meeting.rosters[i].member.name);
+			list.append(link);
+		}
+		list.find('a').wrap('<li></li>');
+		container.find('.rosters-container').append(list);
 	}
+	else {
+		container.find('.rosters-container').parents('li').remove();
+
+		var link = $('<a data-role="button"></a>');
+		link.text('Schedule Member');
+		link.click(function(e){
+			e.preventDefault();
+			resetAppointmentWizard({ meeting : meeting });
+		});
+		actions.append(link);
+	}
+
+	link = $('<a data-role="button">Redeem Package</a>');
+	link.click(function(){
+		//TODO
+		alert('You will be able to redeem packages for booked reservations.  To be completed.');
+	});
+	actions.append(link);
+
+	if(!meeting.isCancelled() && meeting.isCancellationAllowed()) {
+		var link = $('<a class="cancel" data-role="button">Cancel Appointment</a>');
+		link.click(function(e){
+			if(confirm("Are you sure you wish to cancel?")) {
+				meeting.cancel({
+					success : function() {
+						alert('Meeting was successfully cancelled.');
+						window.history.back();
+						refreshMySchedule();
+					},
+					error : function() {
+						alert('This reservation cannot be cancelled.  Please see your Department Head if you need additional assistance.');
+					}
+				});
+			}
+		});
+		actions.append(link);
+	}
+
+	actions.find('a:first').data('theme','b');
 
 	$('#meeting-details').data('meeting', meeting);
 	container.trigger( "create" );
-}
-
-function cancelMeeting(meeting) {
-	BOSSAPI.scheduling.meetings.cancel({
-		data : { id : meeting.id },
-		success : function() {
-			window.history.back();
-			refreshMySchedule();
-		},
-		error : function() {
-			alert('This reservation cannot be cancelled.  Please see your Department Head if you need additional assistance.');
-		}
-	});
 }
 
 function createBook(container, clients, onSelect) {
@@ -612,7 +673,7 @@ function showClient(client) {
 	var container = $('#client-details');
 
 	var contents = container.find('.ui-content');
-	contents.empty().text('Loading...');
+	contents.empty().loading();
 
 	BOSSAPI.auth.info({
 		data : {
@@ -628,22 +689,69 @@ function showClient(client) {
 				});
 			});
 
+			var actions = container.find('div.actions');
+			if(member.email != undefined) {
+				actions.append('<a data-role="button" href="mailto:{{' + member.email + '}}">Send Email</a>');
+			}
+			if(member.phone != undefined) {
+				actions.append('<a data-role="button" href="tel:{{' + member.phone + '}}">Call</a>');
+			}
+			actions.append('<a data-role="button" data-rel="dialog" data-transition="slidedown" href="' + memberPhotoUrl(member) + '">View Photo</a>');
+
 			container.trigger('create');
 
-			var params = {
-				ssoid : BOSSAPI._ssoid,
-				employee_number : employee().id,
-				publish : 'true,false', //Both published and non-published schedules.
-				member_id : client.member_id
-			};
+			var rosterContainer = container.find('div.rosters');
+			rosterContainer.empty().loading();
 
-			container.find('div.rosters').empty().append('Loading...');
-			BOSSAPI.scheduling.meetings.search(params, function(meetings){
-				container.find('div.rosters').empty();
-				for(var i = 0 ; i < meetings.length ; i++) {
-					container.find('div.rosters').append(clientDetailHistoryItemTemplate(meetings[i]));
-				}
-				container.find('div.rosters').trigger('create');
+			searchMemberInteraction({ 
+				data : { member_id : client.member_id, includes : 'rosters' }, 
+				success : function(meetings) {
+					var list = $('<ul data-inset="true" data-role="listview"></ul>');
+					meetings.each(function(meeting){
+						var label = $('<span/>');
+						label.text(BOSSAPI.utils.formatString('{date} {time} : {description} ({duration})', {
+							date : formatMeetingDate(meeting),
+							time : formatMeetingTime(meeting),
+							description : meeting.description,
+							duration : formatMeetingDuration(meeting)
+						}));
+
+						var item = $('<li/>');
+						item.append(label);
+						
+						if(meeting.hasRosters() && meeting.rosters[0].balance > 0) {
+							item.data('theme','d');
+							item.find('span').wrap('<a></a>');
+							item.find('a').append('<span>&nbsp;-&nbsp;Amount Due: $' + Number(meeting.rosters[0].balance).toFixed(2) + '</span>');
+						}
+
+						list.append(item);
+					});
+					rosterContainer.empty().append(list).trigger('create');
+				} 
+			});
+
+
+			var packagesContainer = container.find('div.packages');
+			packagesContainer.empty().loading();
+
+			searchMemberPackages({ 
+				data : { member_id : client.member_id, includes : 'product' }, 
+				success : function(packages) {
+					var list = $('<ul data-inset="true" data-role="listview"></ul>');
+					packages.each(function(pkg){
+						var label = $('<span/>');
+						label.text(BOSSAPI.utils.formatString('{description} : {quantity} @ {price}', {
+							description : pkg.description,
+							quantity : Number(pkg.quantity),
+							price : Number(pkg.per_unit_price).toFixed(2)
+						}));
+						var item = $('<li/>');
+						item.append(label);
+						list.append(item);
+					});
+					packagesContainer.empty().append(list).trigger('create');
+				} 
 			});
 		},
 		error : function() {

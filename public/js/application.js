@@ -22,6 +22,13 @@ if (!Array.prototype.indexOf)
   };
 }
 
+Array.prototype.each = function(block)
+{
+  for(var i = 0 ; i < this.length ; i++) {
+    block(this[i]);
+  }
+};
+
 (function($) {
   $.fn.loading = function(params) {
     params = $.extend( { message: 'Loading' }, params);
@@ -46,7 +53,7 @@ function keepAlive() {
   setInterval(function(){
     BOSSAPI.auth.ping({
       error : function(error) {
-        alert('error pinging server.');
+        $(document).trigger('onSessionError', error);
       }
     });
   }, 60 * 1000);
@@ -231,6 +238,58 @@ function searchSchedule(settings) {
   });
 }
 
+function setTemplatedContainerContent(container, items, template) {
+  container.empty();
+  for(var i = 0 ; i < items.length ; i++) {
+    container.append(template(items[i]));
+  }
+  container.trigger('create');
+}
+
+function searchMemberInteraction(settings) {
+  settings['data'] = $.extend({ 
+    ssoid : BOSSAPI._ssoid,
+    employee_number : employee().id,
+    publish : 'true,false', //Both published and non-published schedules.
+  },settings['data']);
+  BOSSAPI.scheduling.meetings.search(settings);
+}
+
+function searchMemberPackages(settings) {
+  settings['data'] = $.extend({ 
+    ssoid : BOSSAPI._ssoid,
+    employee_number : employee().id
+  },settings['data']);
+  searchPackages(settings);
+}
+
+function searchPackages(settings) {
+  settings = $.extend({ 
+    url : BOSSAPI.utils.formatString( '{url}member/packages.json' , { url : BOSSAPI._url }),
+    success : function(data) {
+      alert('You need to properly handle your search results.');
+    },
+    error : function(error) {
+      alert('Failed to search member packages.  Please retry later and if the problem persists contact support.');
+    }
+  }, settings);
+
+  $.ajax({
+      url : settings.url,
+      data : BOSSAPI.includeSecureParams(settings['data']),
+      dataType : 'jsonp',
+      type : 'GET',
+      success : function(data) {
+          if(data['error'] == undefined) {
+            for(var i = 0 ; i < data.length ; i++) {
+              data[i] = data[i].gift_certificate;
+            }
+          }
+          BOSSAPI.utils._handleServerResponse(settings, data);
+      }
+  });
+}
+
 function searchMembers(settings) {
 
   settings['data'] = BOSSAPI.includeSecureParams(settings['data'])
@@ -257,6 +316,11 @@ function searchMembers(settings) {
       dataType : 'jsonp',
       type : 'GET',
       success : function(data) {
+
+          if(data['member'] && data.member['member_id'] != undefined) { 
+            data.member = [data.member]; 
+          }
+
           BOSSAPI.utils._handleServerResponse(settings, data);
       }
   });

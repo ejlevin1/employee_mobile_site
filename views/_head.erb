@@ -13,7 +13,7 @@
 <script type="text/javascript" src="<%= "#{settings.boss_data_server}js/bossapi_v1.js" %>"></script>
 <script type="text/javascript">
 <%if ssoid %>
-	BOSSAPI.init('<%= ssoid %>');
+	BOSSAPI.init('<%= ssoid %>', false);
 	BOSSAPI.auth.info({
 		success : function(data) {
 			if(data['employee'] != undefined) {
@@ -23,11 +23,11 @@
 				keepAlive();
 			}
 			else {
-				window.location.href = '<%= to('/logout') %>';
+				$(document).trigger('onSessionError', undefined);
 			}
 		},
 		error : function(error) {
-			window.location.href = '<%= to('/logout') %>';
+			$(document).trigger('onSessionError', error);
 		}
 	});
 <% else %>
