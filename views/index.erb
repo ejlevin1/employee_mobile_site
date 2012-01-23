@@ -677,11 +677,13 @@ function showClient(client) {
 	var contents = container.find('.ui-content');
 	contents.empty().loading();
 
-	BOSSAPI.auth.info({
+	BOSSAPI.auth.user.info({
 		data : {
 			member_id : client.member_id,
 		},
-		success : function(member) {
+		success : function(user) {
+			var member = user.member;
+
 			container.find('h1').empty().text(BOSSAPI.utils.formatString('{last}, {first}', member.name));
 			contents.empty().append(clientDetailTemplate(member));
 			
