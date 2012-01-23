@@ -14,16 +14,15 @@
 <script type="text/javascript">
 <%if ssoid %>
 	BOSSAPI.init('<%= ssoid %>', false);
-	BOSSAPI.auth.info({
-		success : function(data) {
-			if(data['employee'] != undefined) {
-				$(document).trigger('onAuthenticated', data.employee);
-				$(document).data('employee', data.employee); 
-
+	BOSSAPI.auth.user.info({
+		success : function(user) {
+			if(user.isEmployee()) {
+				$(document).trigger('onAuthenticated', user.employee);
+				$(document).data('employee', user.employee); 
 				keepAlive();
 			}
 			else {
-				$(document).trigger('onSessionError', undefined);
+				$(document).trigger('onSessionError', 'Non-employee user authentication detected!');
 			}
 		},
 		error : function(error) {
