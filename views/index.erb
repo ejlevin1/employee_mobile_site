@@ -168,16 +168,18 @@ function refreshAppointmentWizard(process) {
 
 		if(process.member['membership_id'] == undefined) {
 			container.loading({ message : 'Looking up member information' });
-			BOSSAPI.auth.info({
+			BOSSAPI.auth.user.info({
 				data : { member_id : process.member.member_id, },
-				success : function(member) {
-					process['member'] = member;
+				success : function(user) {
+					if(user.isMember()) {
+						process['member'] = user.member;
+					}
 					refreshAppointmentWizard();
 				},
 				error : function() {
 					alert('Failed to lookup member information.');
 				}
-			});	
+			});
 		}
 		else if(meeting == undefined && process['product'] == undefined) {
 			container.empty().loading({ message : 'Loading employee products' }).trigger('create');
